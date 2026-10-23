@@ -115,6 +115,7 @@ function countUp(el, ms = 1200) {
 // 1. Админка: игроки отмечаются, реентри растут, уровень тикает
 const waiting = [['ivan', 'Иван'], ['maria', 'Мария'], ['pavel', 'Павел'], ['ekaterina', 'Екатерина']];
 $$('.admin-mock').forEach(mock => {
+  if (mock.closest('.hero')) return; // в герое список живёт от нажатия на телефон (см. п. 3)
   const live = $('.am-live', mock);
   const clock = document.createElement('b');
   clock.className = 'am-clock';
@@ -267,33 +268,52 @@ $$('.owner-report').forEach(report => {
   whenVisible(report, () => { report.classList.remove('pre'); $$('[data-count]', report).forEach(n => countUp(n)); }, { threshold: 0.5 });
 });
 
-// 3. Телефон в герое: нажатие записывает на турнир, который показан на главной
+// 3. Телефон в герое: нажатие записывает на турнир, повторное — отменяет; список на Mac следует за телефоном
 (() => {
   const btn = $('.hero-phone [data-register]');
-  if (!btn) return;
+  const mac = $('.hero .admin-mock');
+  if (!btn || !mac) return;
   const screen = btn.closest('.iphone-screen');
   const cta = $('.pm-cta', btn);
   const seats = $('.pm-meta span:last-child', btn).lastChild;
   const live = $('#reg-status');
-  const [free, taken] = ['9 из 45', '10 из 45'];
-  let state = 'idle', timers = [];
-  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
-  const show = (s, text, seatText) => {
+  const head = $('.am-head', mac);
+  const count = $('.am-count b', mac);
+  const base = $$('.am-row:not(.am-head)', mac).length;
+  const label = 'Приложение игрока Doyle: нажмите, чтобы ';
+  let state = 'idle', me = null, timer = 0;
+  const renumber = () => $$('.am-row:not(.am-head)', mac).forEach((row, i) => { row.firstElementChild.textContent = i + 1; });
+  const total = n => { count.textContent = `${n} / 45`; seats.textContent = `${n} из 45`; };
+  const bump = () => { const box = seats.parentNode; box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump'); };
+  const addMe = () => {
+    me = document.createElement('div');
+    me.className = 'am-row am-in';
+    me.innerHTML = '<span></span><span class="am-player"><img src="avatars/maksim.webp" alt="" width="160" height="160">Максим</span><span class="am-status wait">Записан</span><span class="am-check"></span><span class="am-re"><em>R−</em><em>R+</em></span><span>0</span>';
+    head.after(me);
+    renumber();
+    total(base + 1);
+    bump();
+    setTimeout(() => me && me.classList.remove('am-in'), 700);
+  };
+  const removeMe = () => {
+    const row = me; me = null;
+    row.classList.add('am-gone');
+    setTimeout(() => { row.remove(); renumber(); }, reduceMotion ? 0 : 450);
+    total(base);
+    bump();
+  };
+  const show = (s, text) => {
     state = s;
     cta.classList.remove('busy', 'done', 'hint');
-    if (s !== 'idle') cta.classList.add(s); else cta.classList.add('hint');
+    cta.classList.add(s === 'idle' ? 'hint' : s);
     cta.textContent = text;
-    if (seatText && seats.textContent !== seatText) {
-      seats.textContent = seatText;
-      const box = seats.parentNode;
-      box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump');
-    }
+    btn.setAttribute('aria-label', label + (s === 'done' ? 'отменить запись на турнир' : 'записаться на турнир Classic Tournament'));
   };
   show('idle', 'Записаться на турнир');
   btn.addEventListener('click', e => {
-    if (state !== 'idle') return;
+    if (state === 'busy') return;
     if (!reduceMotion) {
-      const r = screen.getBoundingClientRect(), c = e.detail ? e : $('.pm-cta', btn).getBoundingClientRect();
+      const r = screen.getBoundingClientRect(), c = cta.getBoundingClientRect();
       const x = e.detail ? e.clientX : c.left + c.width / 2, y = e.detail ? e.clientY : c.top + c.height / 2;
       const dot = document.createElement('i');
       dot.className = 'tap-ripple';
@@ -302,11 +322,12 @@ $$('.owner-report').forEach(report => {
       screen.append(dot);
       setTimeout(() => dot.remove(), 700);
     }
-    show('busy', 'Записываем…');
-    later(() => {
-      show('done', '✓ Вы записаны', taken);
-      live.textContent = 'Вы записаны на Classic Tournament, завтра в 19:00';
-    }, reduceMotion ? 0 : 900);
-    later(() => { show('idle', 'Записаться на турнир', free); live.textContent = ''; }, reduceMotion ? 6000 : 5600);
+    const wasDone = state === 'done';
+    show('busy', wasDone ? 'Отменяем…' : 'Записываем…');
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (wasDone) { show('idle', 'Записаться на турнир'); removeMe(); live.textContent = 'Запись отменена'; }
+      else { show('done', '✓ Вы записаны'); addMe(); live.textContent = 'Вы записаны на Classic Tournament, завтра в 19:00'; }
+    }, reduceMotion ? 0 : (wasDone ? 600 : 900));
   });
 })();

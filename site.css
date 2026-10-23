@@ -3212,3 +3212,10 @@ footer .brand .green {
 .tap-ripple { position: absolute; z-index: 4; width: 16cqw; height: 16cqw; margin: -8cqw 0 0 -8cqw; border-radius: 50%; background: #ffffff55; pointer-events: none; animation: tap-ripple .65s ease-out forwards; }
 @keyframes tap-ripple { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.7); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .hero-phone .pm-cta.hint, .hero-phone .pm-cta.done, .hero-phone .pm-meta span.bump { animation: none; } }
+
+/* Список на Mac следует за телефоном: строка появляется и исчезает */
+.hero .am-row { overflow: hidden; }
+.hero .am-row.am-in { animation: am-in .55s cubic-bezier(.2,.8,.2,1); }
+@keyframes am-in { from { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; background: #2bd98a33; } 40% { background: #2bd98a33; } to { max-height: 6em; background: transparent; } }
+.hero .am-row.am-gone { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; border-top-width: 0; transition: max-height .4s ease, padding .4s ease, opacity .25s; }
+@media (prefers-reduced-motion: reduce) { .hero .am-row.am-in { animation: none; } .hero .am-row.am-gone { transition: none; } }
