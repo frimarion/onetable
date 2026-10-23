@@ -3219,3 +3219,49 @@ footer .brand .green {
 @keyframes am-in { from { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; background: #2bd98a33; } 40% { background: #2bd98a33; } to { max-height: 6em; background: transparent; } }
 .hero .am-row.am-gone { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; border-top-width: 0; transition: max-height .4s ease, padding .4s ease, opacity .25s; }
 @media (prefers-reduced-motion: reduce) { .hero .am-row.am-in { animation: none; } .hero .am-row.am-gone { transition: none; } }
+
+/* Убраны: подпись с кружками в герое, «Меньше рутины…» в hero-bottom, «Из клубной практики…» */
+.hero-bottom { justify-content: flex-start; }
+@media (max-width: 640px) { .hero-bottom > a { max-width: none; text-align: left; } }
+
+/* Блок 01: телефон стоит ровно */
+.app-phone { transform: none; }
+
+/* Блок 02: устройства стоят прямо на странице, без тёмной плиты */
+.role-stage { background: transparent; box-shadow: none; padding: 44px 10px 10px; }
+.role-kicker { left: 10px; top: 8px; color: var(--ink-2); }
+.role-mac { width: 88%; margin: 0 auto; }
+.role-mac .mac-screen { box-shadow: 0 30px 50px -24px #0b0f0d59; }
+
+/* Флор: ТВ с таймером и iPhone-пульт */
+.tv-wrap { position: relative; width: 100%; padding-bottom: 7%; }
+.tv { width: 88%; margin: 0 auto; }
+.tv-frame { padding: 1.1%; background: #151618; border: 1px solid #2a2d2c; border-radius: 10px; box-shadow: 0 30px 50px -24px #0b0f0d59, inset 0 0 0 1px #000; }
+.tv-frame .timer-mock { border: 0; border-radius: 4px; }
+.tv-neck { width: 9%; height: clamp(14px, 2.4vw, 30px); margin: 0 auto; background: linear-gradient(90deg,#2b2d30,#4a4d52 50%,#2b2d30); }
+.tv-foot { width: 30%; height: 8px; margin: 0 auto; background: linear-gradient(#4a4d52,#2b2d30); border-radius: 3px 3px 8px 8px; }
+.remote.iphone { position: absolute; right: 0; bottom: 0; width: clamp(128px, 24%, 190px); z-index: 2; }
+.remote .iphone-screen { aspect-ratio: 9 / 19.2; background: #0b0f0d; padding-top: 0; }
+.rm { position: absolute; inset: 15% 7% 7%; display: flex; flex-direction: column; gap: 3cqw; color: var(--dark-ink); }
+.rm-label { font: 500 3.4cqw/1.3 var(--mono); letter-spacing: .12em; color: var(--dark-ink-2); }
+.rm-name { font-size: 6.4cqw; font-weight: 650; letter-spacing: -.01em; }
+.rm-now { display: flex; flex-direction: column; gap: 1cqw; margin: 3cqw 0; padding: 5cqw 0; border-block: 1px solid var(--dark-line); }
+.rm-now span { font: 500 3.8cqw/1.2 var(--mono); letter-spacing: .1em; color: var(--dark-ink-2); text-transform: uppercase; }
+.rm-now i { font-style: normal; color: var(--dark-ink); }
+.rm-now strong { font-size: 18cqw; font-weight: 650; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.remote .tm-controls { position: static; display: flex; flex-direction: column; gap: 3cqw; margin-top: auto; }
+.remote .tm-controls button { min-height: 0; width: 100%; padding: 4cqw 3cqw; border-radius: 4.5cqw; border: 0; background: #ffffff14; font-size: 4.4cqw; font-weight: 600; }
+.remote .tm-controls #tm-toggle { background: var(--glow); color: var(--dark); }
+.remote .tm-controls #tm-toggle:hover { background: #4ae6a0; }
+.remote .tm-controls button:hover { background: #ffffff24; }
+.remote .tm-controls .tm-short { display: none; }
+@media (max-width: 640px) {
+  .tv { width: 100%; }
+  .tv-wrap { padding-bottom: 12%; }
+  .remote.iphone { width: clamp(110px, 30%, 150px); }
+  .role-mac { width: 94%; }
+  .remote .tm-controls button { min-height: 0; }
+}
+.tv { width: 79%; margin: 0; }
+.tv-wrap { padding-bottom: 8%; }
+@media (max-width: 640px) { .tv { width: 100%; } }

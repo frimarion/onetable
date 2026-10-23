@@ -180,6 +180,8 @@ $$('.admin-mock').forEach(mock => {
     el('ante').textContent = `BB ANTE ${fmt(levels[level][1])}`;
     el('next').textContent = levels[level + 1] ? blinds(level + 1) : '—';
     el('clock').textContent = mmss(left);
+    const rmClock = $('#rm-clock');
+    if (rmClock) { rmClock.textContent = mmss(left); $('#rm-level').textContent = level + 1; }
     el('bar').style.transform = `scaleX(${(LEN - left) / LEN})`;
     const breakLevel = Math.ceil((level + 1) / 5) * 5; // перерыв после каждого 5-го уровня
     const breakIn = Math.floor((left + (breakLevel - level - 1) * LEN) / 60);
