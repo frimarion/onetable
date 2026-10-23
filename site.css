@@ -2930,3 +2930,8 @@ footer .brand .green {
   aspect-ratio: auto;
   border: 1px solid var(--dark-line);
 }
+
+/* Экран роли в пропорции 16:9 — как у экрана таймера и панели */
+.role-screen {
+  aspect-ratio: 16/9;
+}
