@@ -1490,13 +1490,13 @@ summary:focus-visible {
   border-bottom-color: var(--line);
 }
 .header-cta.button-dark {
-  background: transparent;
-  color: var(--ink);
+  background: var(--ink);
+  color: #fff;
   border-color: var(--ink);
   transition: background-color .2s,color .2s;
 }
 .header-cta.button-dark:hover {
-  background: var(--ink);
+  background: #000;
   color: #fff;
   transform: none;
   box-shadow: none;
