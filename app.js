@@ -81,10 +81,13 @@ document.addEventListener('click', e => {
  const button = e.target.closest('[data-screen]');
  if (!button) return;
  const title = button.dataset.title;
+ const mock = button.dataset.screen === 'player-mock';
  $('#screen-dialog-title').textContent = title;
- $('#screen-full-image').src = button.dataset.screen;
- $('#screen-full-image').alt = title;
- screenDialog.classList.toggle('portrait-screen', button.dataset.screen.includes('player-home'));
+ $('.screen-image-scroll .player-mock', screenDialog)?.remove();
+ $('#screen-full-image').hidden = mock;
+ if (mock) $('.screen-image-scroll', screenDialog).append($('.player-mock', button).cloneNode(true));
+ else { $('#screen-full-image').src = button.dataset.screen; $('#screen-full-image').alt = title; }
+ screenDialog.classList.toggle('portrait-screen', mock);
  openDialog(screenDialog);
 });
 $('.screen-close',screenDialog).addEventListener('click',()=>screenDialog.close());
