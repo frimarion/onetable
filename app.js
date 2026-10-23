@@ -1,31 +1,24 @@
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => [...root.querySelectorAll(s)];
-const demos = {
-  tournament: { description: 'Панель администратора Doyle · демонстрационные данные', html: `<div class="actual-admin-demo"><div class="actual-demo-heading"><h3>Управление игроками</h3><p>Регистрация, отметка прихода, реентри и вылеты — в одной панели.</p></div><button class="screen-zoom" data-screen="doyle-admin-players.png" data-title="Doyle — панель управления игроками" aria-label="Увеличить панель управления игроками"><img src="doyle-admin-players.png" alt="Панель управления игроками Doyle"><span class="zoom-hint">↗ Открыть в полном размере</span></button></div>` },
-  seating: { description: 'Пример интерфейса · рассадка и игровой таймер', html: `<div class="demo-screen seating-screen"><div class="screen-title"><h3>Рассадка и таймер</h3><span class="screen-tag">Турнир идёт</span></div><p class="screen-subtitle">Friday Deep Stack · Игроки и игровой таймер</p><div class="seating-inner"><div class="mini-table"><span class="table-num">СТОЛ 01</span><i class="seat s1">МК</i><i class="seat s2">АП</i><i class="seat s3">ДС</i><i class="seat s4">ЕВ</i><i class="seat s5">ОН</i><i class="seat s6">КМ</i></div><div class="timer-panel"><small>УРОВЕНЬ 6</small><strong>14<span>:</span>32</strong><div class="timer-progress"></div><span>Блайнды 500 / 1 000</span></div></div><div class="seating-summary"><span>3 активных стола</span><span>24 игрока в игре</span><span>Средний стек 45 000</span></div></div>` },
-  finance: { description: 'Пример интерфейса · учёт оплат за игровой день', html: `<div class="demo-screen"><div class="screen-title"><h3>Отчёт по оплатам</h3><span class="screen-tag">Игровой день</span></div><div class="finance-stats"><div><small>УЧАСТИЯ</small><strong>36</strong></div><div><small>РЕЕНТРИ</small><strong>12</strong></div><div><small>УЧТЕНО ОПЛАТ</small><strong>48 000 ₽</strong></div></div><table class="finance-table"><thead><tr><th>Игрок</th><th>Участие</th><th>Реентри</th><th>Оплачено</th></tr></thead><tbody><tr><td>Максим К.</td><td>1 000 ₽</td><td>1 000 ₽</td><td>2 000 ₽</td></tr><tr><td>Анна П.</td><td>1 000 ₽</td><td>—</td><td>1 000 ₽</td></tr><tr><td>Дмитрий С.</td><td>1 000 ₽</td><td>1 000 ₽</td><td>2 000 ₽</td></tr></tbody></table><span class="screen-action">Выгрузка в таблицу <span>↗</span></span></div>` }
-};
-function setDemo(tab) {
-  const name = tab.dataset.tab;
-  $$('.feature-tab').forEach(b => { b.classList.toggle('active', b === tab); b.setAttribute('aria-selected', String(b === tab)); b.tabIndex = b === tab ? 0 : -1; });
-  $('#demo-content').innerHTML = demos[name].html;
-  $('#demo-description').textContent = demos[name].description;
-  $('#feature-panel').setAttribute('aria-labelledby', tab.id);
+function setRole(tab) {
+  $$('.role-tab').forEach(b => { const on = b === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; $('#' + b.getAttribute('aria-controls')).hidden = !on; });
 }
-$$('.feature-tab').forEach((tab, index, tabs) => {
-  tab.addEventListener('click', () => setDemo(tab));
+$$('.role-tab').forEach((tab, index, tabs) => {
+  tab.addEventListener('click', () => setRole(tab));
   tab.addEventListener('keydown', e => {
     let next;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = tabs[(index + 1) % tabs.length];
     if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = tabs[(index + tabs.length - 1) % tabs.length];
     if (e.key === 'Home') next = tabs[0];
     if (e.key === 'End') next = tabs[tabs.length - 1];
-    if (next) { e.preventDefault(); setDemo(next); next.focus(); }
+    if (next) { e.preventDefault(); setRole(next); next.focus(); }
   });
 });
-setDemo($('.feature-tab'));
+// Примерка цвета клуба: оттенок накладывается на реальный экран приложения
 $$('.swatch').forEach(button => button.addEventListener('click', () => {
-  $('#theme-preview').style.setProperty('--club-color', button.dataset.color);
+  const phone = $('#brand-phone');
+  phone.style.setProperty('--club-color', button.dataset.color || 'transparent');
+  phone.classList.toggle('is-tinted', Boolean(button.dataset.color));
   $$('.swatch').forEach(b => { b.classList.toggle('selected', b === button); b.setAttribute('aria-pressed', String(b === button)); });
 }));
 const videoDialog = $('#video-dialog');

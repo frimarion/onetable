@@ -40,16 +40,6 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke
 .text-button{background:none;border:0;padding:10px 0;display:flex;align-items:center;gap:8px;white-space:nowrap}
 .play-small{width:27px;height:27px;display:grid;place-items:center;border:1px solid #dbe4de;border-radius:50%;font-size:9px;padding-left:2px}
 .text-button:hover .play-small{background:var(--green);color:white;border-color:var(--green)}
-.demo-label{font-size:7px;letter-spacing:1px;color:#92a198}
-.mini-table{position:relative;width:130px;height:53px;border-radius:35px;border:5px solid #d4dfd8;outline:1px solid #dfe5df;grid-column:1;grid-row:1;margin:0 auto}
-.table-num{position:absolute;inset:0;display:grid;place-items:center;font-size:9px}
-.seat{position:absolute;width:18px;height:18px;border-radius:50%;border:2px solid white;font-size:5px;font-style:normal;display:grid;place-items:center}
-.s1{left:14px;top:-13px}
-.s2{right:14px;top:-13px}
-.s3{right:-13px;top:13px}
-.s4{right:14px;bottom:-13px}
-.s5{left:14px;bottom:-13px}
-.s6{left:-13px;top:13px}
 .notice-icon{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12px}
 .hero-bottom{display:flex;justify-content:space-between;align-items:center}
 .hero-bottom a span{margin-left:20px}
@@ -61,53 +51,12 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke
 .section-heading{display:flex;justify-content:space-between;align-items:flex-end}
 h2{font-size:43px;line-height:1.16;letter-spacing:-1.9px;font-weight:550;margin:19px 0 0}
 .section-heading>p{margin:0 0 4px}
-.platform-layout{display:grid;border:1px solid var(--line);overflow:hidden}
-.feature-tabs{border-right:1px solid var(--line);display:flex;flex-direction:column}
-.feature-tab{width:100%;flex:1;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;display:flex;align-items:flex-start;position:relative}
-.feature-tab:last-child{border:0}
-.feature-tab b{display:block}
-.feature-tab small{display:block;margin-top:8px}
-.tab-arrow{margin-left:auto}
-.feature-tab.active:before{content:'';position:absolute;left:-26px;top:27px;width:3px;height:28px}
-.feature-demo{position:relative}
-.demo-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
-.window-dots{display:flex;gap:4px}
-.window-dots i{width:5px;height:5px;border-radius:50%}
-.demo-screen{min-height:280px;animation:fadeIn .3s}
-.screen-title{display:flex;align-items:center;justify-content:space-between}
-.screen-title h3{font-size:17px;font-weight:550;margin:0;letter-spacing:-.5px}
-.screen-tag{padding:5px 8px;border-radius:4px;font-size:8px}
-.screen-subtitle{font-size:9px;line-height:1.6;margin:8px 0 22px}
-.screen-action{border-radius:4px;padding:9px 13px;font-size:9px;display:inline-flex;align-items:center;gap:25px;margin-top:15px}
-.demo-caption{display:flex;gap:7px}
-.demo-caption .status-dot{width:4px;height:4px}
-.seating-screen .seating-inner{display:flex;align-items:center;justify-content:space-around;gap:20px}
-.seating-inner .mini-table{margin:0;width:180px;height:83px}
-.seating-inner .seat{width:25px;height:25px;font-size:7px}
-.seating-inner .s3,.seating-inner .s6{top:23px}
-.timer-panel{text-align:center}
-.timer-panel small{font-size:8px}
-.timer-panel strong{display:block;margin:8px 0}
-.timer-panel span{font-size:8px;display:block;color:#8b9a8f}
-.seating-summary{display:flex;justify-content:space-between;border-top:1px solid #e6ebe4;padding-top:17px;margin-top:20px;font-size:9px}
-.finance-stats{display:flex;justify-content:space-between;margin:25px 0;border-bottom:1px solid #e7ede6;padding-bottom:20px}
-.finance-stats small{display:block}
-.finance-stats strong{display:block;font-size:22px;letter-spacing:-.7px;font-weight:500;margin-top:8px}
-.finance-table{width:100%;font-size:9px;border-collapse:collapse}
-.finance-table td,.finance-table th{padding:10px 0;border-bottom:1px solid #edf1ea;text-align:left}
-.finance-table th{font-weight:400}
-.finance-table td:last-child,.finance-table th:last-child{text-align:right}
-.player-section{border-top:1px solid #e9eee6;border-bottom:1px solid #e9eee6;overflow:hidden}
-.player-layout{display:grid;align-items:center}
-.player-copy{padding:65px 0}
-.player-copy p{max-width:400px;margin:23px 0}
 .check-list{list-style:none;padding:0;margin:27px 0 30px;display:grid}
 .check-list li{display:flex;align-items:center;gap:10px}
 .check-list li:before{flex-shrink:0}
 .inline-link{display:inline-flex;align-items:center;gap:25px;border-bottom:1px solid #bdd2c3;padding-bottom:9px}
 .inline-link:hover{border-color:var(--green)}
 .inline-link svg{width:17px;height:17px}
-.player-art{position:relative;display:flex;align-items:center;justify-content:center}
 .video-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
 .video-heading h2{margin-top:14px}
 .video-heading>p{margin-bottom:3px}
@@ -122,27 +71,9 @@ h2{font-size:43px;line-height:1.16;letter-spacing:-1.9px;font-weight:550;margin:
 .video-bottom b{font-weight:500}
 .video-bottom>span{color:#d4e0d8}
 .video-bottom>span>span{margin-left:20px}
-.clubs-grid{display:grid;grid-template-columns:1fr 1fr;align-items:center}
-.clubs-grid h2{font-size:48px}
-.clubs-grid>div>p{margin:23px 0 28px}
-.customize-head{display:flex;justify-content:space-between;letter-spacing:1.2px;margin-bottom:20px}
-.customize-head>span:last-child{letter-spacing:0}
-.theme-preview{border:1px solid #e1e9dd;border-radius:8px}
-.preview-brand{display:flex;align-items:center;gap:10px;margin-bottom:26px}
-.preview-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:8px;font-size:24px;transition:background .3s}
-.preview-brand>span:last-child{font-weight:550}
-.preview-brand small{display:block;font-weight:400;letter-spacing:1.3px;margin-top:5px}
-.preview-tournament{border-radius:6px;padding:20px;color:white;transition:background .3s;position:relative;overflow:hidden}
-.preview-tournament:after{content:'';position:absolute;width:170px;height:170px;right:-80px;top:-10px;border:1px solid #ffffff28;border-radius:50%;box-shadow:0 0 0 20px #ffffff08,0 0 0 40px #ffffff08}
-.preview-tournament>span{letter-spacing:1px}
-.preview-tournament h3{letter-spacing:-1px;line-height:1.15;margin:19px 0 12px}
-.preview-register{border-radius:5px;padding:12px 13px;display:flex;justify-content:space-between;position:relative;z-index:1}
-.color-picker{display:flex;justify-content:space-between;align-items:center;margin:23px 0 18px}
-.color-picker>div{display:flex;gap:11px}
 .swatch{border-radius:50%;background:var(--swatch);border:2px solid #f5f7f3;outline:1px solid transparent}
 .swatch.selected{outline-color:var(--swatch)}
 .swatch:hover{transform:scale(1.15)}
-.customization .customization-note{margin:0;max-width:none}
 .faq-section{border-top:1px solid var(--line)}
 .faq-grid{display:grid;grid-template-columns:1fr 1.65fr;gap:90px}
 .faq-list details{border-bottom:1px solid var(--line)}
@@ -179,7 +110,6 @@ button:disabled{cursor:default}
 }
 @media (max-width:1150px){
 .container{padding-left:30px;padding-right:30px}
-.feature-tab.active:before{left:-21px}
 .faq-grid{gap:50px}
 .hero-bottom{position:relative;z-index:2}
 }
@@ -190,13 +120,6 @@ button:disabled{cursor:default}
 .hero-description br{display:none}
 .proof-inner{justify-content:space-between}
 h2{font-size:35px}
-.feature-tabs{display:grid;grid-template-columns:repeat(3,1fr);border-right:0;border-bottom:1px solid var(--line)}
-.feature-tab{border:0;display:block}
-.feature-tab .tab-number{display:block}
-.tab-arrow{display:none}
-.feature-tab.active:before{left:0;top:auto;width:35px;height:2px}
-.demo-screen{min-height:290px}
-.clubs-grid h2{font-size:40px}
 }
 @media (max-width:640px){
 .brand>span{font-size:24px}
@@ -209,23 +132,11 @@ h2{font-size:35px}
 .hero-actions .button{gap:12px}
 .hero-actions .text-button{gap:5px}
 .play-small{width:24px;height:24px;font-size:8px}
-.mini-table{width:125px}
 .hero-bottom a span{margin-left:5px}
 .proof-inner{flex-wrap:wrap}
 h2{font-size:33px;letter-spacing:-1.3px}
 .section-heading{display:block}
-.demo-topbar{margin-bottom:16px}
-.window-dots{gap:3px}
-.window-dots i{width:4px;height:4px}
-.demo-screen{min-height:285px}
-.screen-title h3{font-size:15px}
-.screen-subtitle{font-size:8px}
-.seating-screen .seating-inner{gap:10px}
-.seating-inner .mini-table{width:150px;height:75px}
-.timer-panel span{font-size:7px}
-.player-copy{padding:55px 0 0;width:100%}
 .check-list{margin:25px 0}
-.player-art{width:100%}
 .video-heading{display:block}
 .video-heading>p{margin-top:18px}
 .video-preview{aspect-ratio:16/10}
@@ -233,7 +144,6 @@ h2{font-size:33px;letter-spacing:-1.3px}
 .video-bottom{left:15px;right:15px;bottom:15px}
 .video-bottom>span>span{margin-left:8px}
 .video-play svg{width:23px;height:23px}
-.clubs-grid{grid-template-columns:1fr}
 .faq-grid{gap:20px}
 .faq-grid h2 br{display:none}
 .footer-inner{flex-wrap:wrap}
@@ -246,109 +156,9 @@ h2{font-size:33px;letter-spacing:-1.3px}
 }
 @media (max-width:360px){
 .hero-actions .button{font-size:10px}
-.seating-inner .mini-table{width:125px}
-}
-/* App-first positioning and role-specific benefits. */
-.roles-section{border-bottom:1px solid var(--line)}
-.role-grid{display:grid}
-.role-card{display:flex;flex-direction:column}
-.role-icon{display:grid;place-items:center;width:39px;height:39px;border-radius:9px;background:#eef5ef;color:var(--green);margin-bottom:27px}
-.role-icon svg{width:20px;height:20px}
-.role-label{font-size:8px;letter-spacing:1px;color:#839689}
-.role-card h3{line-height:1.3;letter-spacing:-.65px;font-weight:550;margin:14px 0}
-.role-card p{font-size:12px;line-height:1.85;color:#7b8a7f;margin:0 0 25px}
-.role-tools{border-top:1px solid var(--line);padding-top:17px;margin-top:auto}
-@media (max-width:1150px){
-.role-card p{font-size:11px}
-.role-label{font-size:7px}
-}
-@media (max-width:900px){
-.role-card p{font-size:12px}
-}
-@media (max-width:640px){
-.role-icon{width:34px;height:34px;margin-bottom:20px}
-.role-label{font-size:6px;letter-spacing:.65px}
-.role-card h3{letter-spacing:-.4px}
-.role-card p{font-size:10px;line-height:1.8}
-.role-tools{padding-top:13px}
-.roles-section .section-heading h2{font-size:35px}
-}
-@media (max-width:360px){
-.role-card p{font-size:12px}
-.role-label{font-size:8px}
 }
 /* Product showcases: light brand canvas, rich club interfaces. */
-.mini-table{background:radial-gradient(ellipse,#226a4b,#0a3928);border-color:#a89462;outline-color:#3e513c}
-.table-num{color:#83b891}
-.seat{background:#e8d7a9;color:#35573d;border-color:#153c28}
 .notice-icon{background:#dbe9cc;color:#326e3c}
-.demo-screen{border:1px solid #466146;box-shadow:0 18px 30px #173d3425;border-radius:10px;padding:24px}
-.screen-title h3{color:#f5ecd6}
-.screen-tag{background:#2e4730;color:#ddc58e;border:1px solid #576449}
-.screen-subtitle{margin-bottom:16px}
-.screen-action{background:#dfc48a;color:#233620;font-weight:550}
-.seating-screen .seating-inner{padding:35px 8px 26px}
-.seating-inner .mini-table{box-shadow:0 15px 25px #0003}
-.timer-panel small{color:#b0bd9e;letter-spacing:1px}
-.timer-panel strong{color:#f1dbac;font-size:45px;font-weight:650;letter-spacing:-2px}
-.timer-panel strong>span{display:inline;font-size:inherit;color:#877c50}
-.timer-panel>span{color:#acba9f}
-.timer-progress{height:3px;border-radius:3px;background:linear-gradient(90deg,#cfb673 72%,#354c31 72%);margin:13px 0}
-.seating-summary{border-color:#385139;color:#aebf9d}
-.finance-stats small{color:#9eb297}
-.finance-stats strong{color:#f0e5bd}
-.player-art{border-radius:24px;background:radial-gradient(ellipse at 30% 20%,#eae0b8,transparent 70%),linear-gradient(135deg,#e9edd8,#d5e6d4);height:470px;margin:45px 0;overflow:hidden}
-.role-card{overflow:hidden}
-.role-preview{margin:0 0 23px;flex-shrink:0}
-.role-preview-top{display:flex;justify-content:space-between;align-items:center;gap:7px;position:relative;z-index:1}
-.role-preview-top b{font-weight:600}
-.role-preview-player{background:#0a2417;color:#e9d5a6}
-.role-preview-player .role-preview-top b{font-size:12px;letter-spacing:2px}
-.role-preview-admin{background:linear-gradient(135deg,#102c25,#214d39);color:#f1ecd9}
-.role-preview-top i{display:inline-block;width:4px;height:4px;background:#a6d68c;border-radius:50%;margin-left:3px}
-.role-preview-floor{background:radial-gradient(ellipse at top,#264e32,#092015);color:#dfc58c}
-.role-preview-floor .role-preview-top b{letter-spacing:1px}
-.role-preview-owner{background:linear-gradient(135deg,#e9edcf,#dae9d8);color:#365c3e}
-.role-owner-count strong{display:block;letter-spacing:-1px;font-weight:600}
-.role-owner-count strong span{font-weight:400}
-.role-bars{display:flex;align-items:flex-end;border-bottom:1px solid #a5b99c;position:relative}
-.role-bars i{flex:1;background:#709e6a;height:var(--h);border-radius:3px 3px 0 0}
-.role-bars i:nth-last-child(-n+2){background:#254e35}
-.role-card>.role-icon{display:none}
-.role-card>.role-label,.role-card>h3,.role-card>p,.role-card>.role-tools{margin-left:7px;margin-right:7px}
-.role-card h3{font-size:19px;margin-top:12px}
-.theme-preview{padding:23px;position:relative}
-.preview-brand>span:last-child{color:#eee8d6}
-.preview-mark{background:var(--club-color);font-weight:700}
-.preview-tournament{min-height:235px;background:linear-gradient(90deg,#0a2419ed 0%,#0b241950 90%),url('doyle-classic.jpg') center/cover;border:1px solid color-mix(in srgb,var(--club-color),#d8bf7e 50%);isolation:isolate}
-.preview-tournament:before{content:'';position:absolute;inset:0;background:var(--club-color);mix-blend-mode:color;opacity:.75;z-index:-1;transition:background .3s}
-.preview-tournament:after{display:none}
-.preview-tournament>span{opacity:1}
-.preview-tournament h3{font-size:35px;font-weight:600;text-shadow:0 2px 16px #0005}
-.preview-tournament p{opacity:1}
-.preview-register{margin-top:27px}
-@media (max-width:1150px){
-.role-card h3{font-size:17px}
-}
-@media (max-width:900px){
-.role-card h3{font-size:22px}
-.role-preview-player{height:200px}
-.player-art{height:445px}
-}
-@media (max-width:640px){
-.demo-screen{padding:17px}
-.player-art{height:440px;margin:30px 0 20px}
-.role-card>.role-label,.role-card>h3,.role-card>p,.role-card>.role-tools{margin-left:4px;margin-right:4px}
-.role-card h3{font-size:16px}
-.role-preview-player .role-preview-top b{font-size:10px}
-.role-preview-floor .role-preview-top b{letter-spacing:.5px}
-.theme-preview{padding:20px}
-.preview-tournament{padding:21px}
-.preview-tournament h3{font-size:32px}
-}
-@media (max-width:360px){
-.role-card h3{font-size:23px}
-}
 /* Legible marketing copy and authentic product screens. */
 :root{--muted:#485f54}
 body{font-size:18px;font-weight:450;color:#172a25}
@@ -372,57 +182,14 @@ body{font-size:18px;font-weight:450;color:#172a25}
 .club-logo-doyle{background:#236645;border-radius:8px;padding:8px 15px}
 .club-logo-vyatka{background:#fff5ee;border-radius:8px;padding:10px 12px}
 .proof-note{font-size:13px;color:#4a6352;padding-left:25px;line-height:1.65}
-.muted-heading{color:#587063}
 .section-heading>p{font-size:17px;color:#415a4a;max-width:355px}
 .section-heading{gap:35px}
-.feature-tabs{padding:18px 25px}
-.feature-tab{padding:25px 0;gap:12px}
-.feature-tab b{line-height:1.4;font-weight:550}
-.feature-tab small{max-width:280px}
-.tab-number{font-size:12px;line-height:28px}
-.tab-arrow{font-size:19px}
-.feature-demo{padding:25px}
-.demo-topbar{font-size:11px;gap:10px;line-height:1.5}
-.demo-topbar .demo-label{letter-spacing:.7px}
-.demo-caption{font-size:13px;line-height:1.6;align-items:flex-start;margin-top:17px}
-.demo-caption .status-dot{margin-top:7px}
-.actual-demo-heading h3{font-size:23px;letter-spacing:-.6px;margin:0 0 10px;font-weight:550}
-.actual-demo-heading p{font-size:15px;line-height:1.7;margin:0 0 20px}
-.actual-admin-demo .screen-zoom{border-radius:9px}
-.actual-admin-demo .zoom-hint{font-size:12px}
-.platform-layout{min-height:460px}
 .check-list li{line-height:1.6}
 .check-list li:before{width:21px;height:21px;font-size:12px}
 .inline-link{font-size:16px;line-height:1.6;font-weight:550}
-.player-art.real-player-art{display:flex;flex-direction:column;align-items:center;justify-content:center}
-.real-player-frame{border:6px solid #142e20;border-radius:28px;overflow:hidden;background:#061a11;flex-shrink:0}
-.real-player-frame .screen-zoom{border-radius:20px}
-.real-player-frame .zoom-hint{font-size:11px;bottom:12px;right:9px;padding:7px 9px}
-.real-screen-caption{line-height:1.6;text-align:center;color:#36513d;max-width:350px}
-.role-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-.role-card>.role-label{line-height:1.7}
-.role-card>h3{letter-spacing:-.8px}
-.role-tools{letter-spacing:.6px;line-height:1.8}
-.actual-role-preview{background:linear-gradient(135deg,#0a2518,#1b3c29);display:flex;justify-content:center}
-.actual-role-preview .screen-zoom{justify-content:center}
-.role-preview-admin.actual-role-preview img{object-position:top left}
-.actual-role-preview .zoom-hint{font-size:12px}
-.role-preview-top{font-size:13px}
-.role-preview-top>span{font-size:10px;letter-spacing:.7px}
-.role-preview-floor .role-preview-top b{font-size:12px}
-.role-owner-count strong span{font-size:25px}
-.role-preview-owner .role-preview-top>span{font-size:10px}
 .video-heading>p{font-size:17px;line-height:1.7}
 .video-bottom b{font-size:20px}
 .video-bottom>span{font-size:14px}
-.customize-head{line-height:1.5}
-.customize-head>span:last-child{font-size:12px}
-.preview-brand>span:last-child{font-size:18px}
-.preview-brand small{font-size:9px;color:#b6c8aa;line-height:1.5}
-.preview-tournament>span{font-size:11px;line-height:1.5}
-.preview-tournament p{font-size:13px;line-height:1.6}
-.preview-register{font-size:14px;line-height:1.5}
-.customization .customization-note{line-height:1.7}
 .faq-list summary{line-height:1.6}
 .footer-inner{gap:25px}
 #contact-dialog{width:550px}
@@ -447,13 +214,7 @@ body{font-size:18px;font-weight:450;color:#172a25}
 }
 @media (max-width:900px){
 .header-cta{font-size:13px}
-.feature-tabs{padding:22px;gap:18px}
-.feature-tab.active:before{bottom:-23px}
 .section-heading>p{font-size:16px;max-width:290px}
-.player-layout{padding-right:45px}
-.role-label{font-size:11px}
-.role-preview-top{font-size:12px}
-.role-preview-floor .role-preview-top b{font-size:10px}
 .faq-grid{grid-template-columns:1fr 1.7fr;gap:30px}
 .video-heading>p{font-size:15px}
 .footer-inner>span:first-of-type{display:none}
@@ -470,40 +231,9 @@ body{font-size:17px}
 .proof-inner>p strong{margin:0}
 .proof-inner>p br{display:block}
 .section-heading>p{max-width:none}
-.feature-tab .tab-number{font-size:11px}
-.feature-tab b{line-height:1.5}
-.feature-tab small{display:none}
-.demo-topbar{font-size:10px;flex-wrap:wrap;gap:8px}
-.actual-admin-demo .screen-zoom{overflow-x:auto}
-.actual-admin-demo .screen-zoom img{max-width:none}
-.actual-admin-demo .zoom-hint{max-width:230px}
-.demo-screen .screen-title h3{font-size:19px}
-.demo-screen .screen-subtitle{font-size:13px}
-.seating-summary{font-size:10px;gap:10px}
-.timer-panel small{font-size:11px}
-.timer-panel>span{font-size:10px}
-.timer-panel strong{font-size:33px}
 .inline-link{gap:15px}
-.player-art.real-player-art{width:100%}
-.role-grid{grid-template-columns:1fr}
-.role-tools{line-height:1.8}
-.role-preview-top{font-size:13px}
-.role-owner-count strong span{font-size:25px}
-.role-preview-owner .role-preview-top>span{font-size:10px}
-.role-preview-player.actual-role-preview{height:330px}
-.role-preview-admin.actual-role-preview{height:220px}
-.role-preview-admin.actual-role-preview img{object-position:left top}
-.actual-role-preview .zoom-hint{font-size:12px}
 .video-heading>p{line-height:1.75}
 .video-heading>p br{display:none}
-.customize-head{gap:12px}
-.customize-head>span:last-child{font-size:11px}
-.preview-brand>span:last-child{font-size:17px}
-.preview-brand small{font-size:8px}
-.preview-tournament>span{font-size:10px}
-.preview-tournament p{font-size:12px}
-.preview-register{font-size:13px;padding:13px 10px}
-.color-picker>div{gap:10px}
 .faq-list summary{line-height:1.6}
 .contact-inner .eyebrow{font-size:10px}
 #contact-dialog>p{font-size:16px}
@@ -516,19 +246,11 @@ body{font-size:17px}
 }
 @media (max-width:360px){
 .hero h1{font-size:43px}
-.role-preview-floor .role-preview-top b{font-size:10px}
-.role-preview-top>span{font-size:9px}
-.role-preview-owner .role-preview-top>span{font-size:9px}
 }
-.feature-demo,.feature-tabs,.role-card,.faq-list,.faq-grid>div{min-width:0}
-.platform-layout{grid-template-columns:minmax(0,37fr) minmax(0,63fr)}
-@media (max-width:900px){
-.platform-layout{grid-template-columns:minmax(0,1fr)}
-}
+.faq-list,.faq-grid>div{min-width:0}
 @media (max-width:640px){
 .faq-grid{grid-template-columns:minmax(0,1fr)}
 .header-inner nav.open{font-size:16px}
-.feature-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 /* Focused product presentation. */
 html{scroll-padding-top:100px}
@@ -558,51 +280,17 @@ button,a{-webkit-tap-highlight-color:transparent}
 .club-logo img{height:52px}
 .proof-inner>p{font-size:13px}
 .proof-note{margin-left:auto}
-.feature-demo{border-left:1px solid #dce6df}
-.feature-tab b{font-size:19px}
-.demo-topbar .demo-label{font-size:9px}
-.actual-admin-demo .screen-zoom{box-shadow:0 15px 32px -12px #0d2c2740}
 .zoom-hint{background:#fffffff5;border-color:#dce6df;border-radius:30px;font-size:11px!important;font-weight:600;padding:9px 13px!important;box-shadow:0 3px 12px #102a251a}
 .screen-zoom{transition:box-shadow .2s}
 .screen-zoom:hover{box-shadow:0 0 0 2px #55ad8b}
-.player-section{padding:70px 0}
-.player-layout{min-height:0;gap:72px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-.player-art.real-player-art{height:555px;background:#e4eee5;border:1px solid #d5e2d6;border-radius:22px;overflow:hidden;padding:25px;gap:14px}
-.real-player-frame{width:222px;transform:rotate(-2deg);box-shadow:0 18px 32px #14342b24}
-.real-screen-caption{font-size:12px}
-.player-copy h2{font-size:42px;letter-spacing:-1.8px}
-.player-copy p{font-size:18px;line-height:1.7}
 .check-list{gap:15px}
 .check-list li{position:relative;padding-left:31px}
 .check-list li:before{content:"✓";display:grid;place-items:center;position:absolute;left:0;top:2px;border-radius:50%}
 .check-list li:after{display:none!important}
-.role-grid{gap:22px}
-.role-card{border:1px solid #315246;padding:15px 15px 24px;box-shadow:none;transition:border-color .2s,transform .2s}
-.role-card:hover{transform:translateY(-3px)}
-.role-card>.role-label{display:block;margin:0 9px;font-size:11px;letter-spacing:1.2px}
-.role-card>h3{font-size:28px;margin:14px 9px;line-height:1.2}
-.role-card>p{font-size:16px;line-height:1.7;margin-left:9px;margin-right:9px;margin-bottom:24px}
-.role-tools{font-size:10px;margin-left:9px;margin-right:9px}
-.role-preview{position:relative;height:278px!important;border:1px solid #365344;border-radius:10px;padding:49px 25px 20px;margin-bottom:25px;overflow:hidden}
-.preview-kicker{position:absolute;left:19px;top:16px;z-index:3;font-size:9px;letter-spacing:1.3px;line-height:1.5}
-.actual-role-preview{padding:43px 0 0!important;align-items:flex-start}
-.actual-role-preview .screen-zoom{height:100%;overflow:hidden;display:block;border-radius:0}
-.role-preview-player.actual-role-preview img{width:230px;height:auto;max-width:none;margin:0 auto;object-fit:initial;transform:translateY(-5px);border:1px solid #52604b;border-radius:16px}
-.role-preview-player:after{content:"";position:absolute;inset:auto 0 0;height:35px;pointer-events:none}
-.role-preview-admin.actual-role-preview img{width:125%;max-width:none;height:auto;object-fit:initial;transform:translate(-4%,-3%)}
-.actual-role-preview .zoom-hint{right:12px;bottom:12px}
-.role-owner-count{margin-top:15px}
-.role-owner-count>small{font-size:12px}
-.role-owner-count strong{font-size:37px;margin-top:3px}
-.role-bars{height:54px;margin-top:13px;gap:13px}
-.role-bars>i{border-radius:3px 3px 0 0}
-.role-owner-bottom{display:flex;justify-content:space-between;margin-top:12px;font-size:10px}
-.role-owner-bottom b{font-size:14px;font-weight:600;margin-right:3px}
 .video-preview{max-width:100%}
 .video-heading{margin-bottom:30px}
 .video-heading h2{font-size:48px}
 .video-bottom{padding:24px}
-.clubs-grid{gap:80px}
 .faq-section{padding:76px 0}
 .contact-inner h2{font-size:56px;letter-spacing:-2.5px}
 .footer-inner{padding-top:28px;padding-bottom:28px}
@@ -620,10 +308,6 @@ button,a{-webkit-tap-highlight-color:transparent}
 .proof-inner{gap:24px}
 .club-logo{width:150px}
 .proof-note{font-size:12px}
-.player-layout{gap:42px;padding-right:30px}
-.player-copy h2{font-size:36px}
-.role-preview{height:260px!important}
-.role-preview-player.actual-role-preview img{width:220px}
 .video-heading h2{font-size:42px}
 }
 @media (max-width:900px){
@@ -632,16 +316,6 @@ button,a{-webkit-tap-highlight-color:transparent}
 .hero-description{font-size:17px}
 .proof-inner{gap:20px}
 .proof-note{display:none}
-.player-layout{gap:28px}
-.player-art.real-player-art{height:530px;padding:22px 14px}
-.real-player-frame{width:205px}
-.player-copy h2{font-size:31px}
-.player-copy p{font-size:16px}
-.role-card>h3{font-size:25px}
-.role-card>p{font-size:15px}
-.role-preview{padding:45px 18px 18px}
-.role-preview-top>span{font-size:9px}
-.role-owner-count strong{font-size:34px}
 .section{padding:68px 0}
 }
 @media (max-width:640px){
@@ -666,56 +340,16 @@ html{scroll-padding-top:85px}
 .section-heading{gap:0;margin-bottom:26px}
 .section-heading h2{font-size:31px;letter-spacing:-1.2px}
 .section-heading>p{font-size:16px;line-height:1.65;margin-top:17px}
-.feature-tabs{padding:15px 11px;gap:8px}
-.feature-tab b{font-size:13px}
-.feature-tab.active:before{bottom:-16px}
-.feature-demo{padding:19px 13px;border-left:0}
-.demo-topbar .demo-label{display:none}
-.actual-demo-heading p{font-size:14px;line-height:1.6}
-.actual-demo-heading h3{font-size:22px}
-.actual-admin-demo .screen-zoom{overflow:hidden;height:215px}
-.actual-admin-demo .screen-zoom img{width:590px;min-width:590px}
-.actual-admin-demo .zoom-hint{position:absolute;left:auto;right:10px;bottom:10px;margin:0;font-size:10px!important}
-.demo-caption{font-size:11px}
-.finance-stats{gap:8px}
-.finance-stats strong{font-size:18px}
-.finance-table{font-size:10px}
-.finance-table td,.finance-table th{padding:12px 5px}
-.player-section{padding:54px 0}
-.player-layout{display:flex;flex-direction:column;padding-right:22px;gap:28px}
-.player-copy{order:0}
-.player-art.real-player-art{order:1;margin:0;height:510px;padding:22px;gap:12px;border-radius:18px}
-.real-player-frame{width:203px;max-width:90%;border-width:5px}
-.real-screen-caption{font-size:11px}
-.player-copy h2{font-size:32px}
-.player-copy p{font-size:16px;margin-bottom:20px}
 .check-list{gap:13px}
 .check-list li{padding-left:29px}
 .check-list li:before{width:19px;height:19px}
 .inline-link{font-size:15px}
-.role-grid{gap:20px}
-.role-card{padding:13px 13px 23px}
-.role-preview{height:247px!important;margin-bottom:22px}
-.role-preview-player.actual-role-preview img{width:215px}
-.role-preview-admin.actual-role-preview img{width:150%;transform:translate(-8%,-2%)}
-.preview-kicker{font-size:8px;left:15px}
-.role-card>h3{font-size:26px}
-.role-card>p{font-size:15px;line-height:1.7}
-.role-tools{font-size:9px}
-.role-preview-top>span{font-size:8px}
-.role-preview-floor .role-preview-top b{font-size:10px}
-.role-owner-count{margin-top:11px}
-.role-owner-count strong{font-size:33px}
-.role-bars{height:45px}
-.role-owner-bottom{font-size:9px}
 .video-heading h2{font-size:34px}
 .video-heading>p{font-size:15px}
 .video-bottom{padding:16px}
 .video-bottom b{font-size:13px}
 .video-bottom>span{font-size:11px}
 .video-play{width:54px;height:54px}
-.clubs-grid{gap:30px}
-.clubs-grid h2{font-size:34px}
 .faq-section{padding:52px 0}
 .contact-inner h2{font-size:35px;letter-spacing:-1.5px}
 .footer-inner{gap:18px}
@@ -750,15 +384,8 @@ html{scroll-behavior:auto}
 /* Тёмная шапка */
 .site-header .header-cta{background:#0a9a72;color:#fff}
 .site-header .header-cta:hover{background:#0cae82}
-/* Платформа */
-.feature-tab small{font-size:13px;line-height:1.7}
 /* Игрок: светлая секция, но карточка с телефоном — как карточка hero */
-.player-section .player-art.real-player-art{border:1px solid #2a5d4e}
 .check-list li{font-size:15px}
-/* Шаги */
-.finance-table td{font-size:12px}
-.finance-table th{font-size:10px}
-.finance-stats small{font-size:10px}
 /* Блок доверия */
 .trust{padding:72px 0 80px;border-top:1px solid var(--line)}
 .trust-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:56px;align-items:stretch}
@@ -795,13 +422,8 @@ html{scroll-behavior:auto}
 .trust-quote blockquote:before{top:-12px;left:-2px;font-size:84px}
 .stat{align-items:baseline}
 /* Под ваш клуб */
-.clubs-grid>div>p{font-size:17px;line-height:1.7;max-width:420px}
-.customization{border:1px solid #2a5d4e;padding:28px}
-.customize-head{font-size:12px}
-.color-picker>span{font-size:14px}
 .swatch{width:24px;height:24px}
 .swatch.selected{outline:2px solid #fff;outline-offset:2px}
-.customization .customization-note{font-size:13px}
 /* FAQ */
 .faq-list summary{font-size:19px;font-weight:550;padding:26px 0;transition:color .2s}
 .faq-list summary span{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:50%;border:1px solid #c5d9cd;font-size:22px;transition:transform .2s,background .2s,color .2s}
@@ -813,67 +435,9 @@ html{scroll-behavior:auto}
 @media (max-width:640px){
 .faq-list summary{font-size:17px;padding:22px 0}
 .faq-list details p{font-size:15px;padding-right:0}
-.clubs-grid>div>p{font-size:16px}
-.customization{padding:22px}
 .contact-inner>p br{display:none}
 }
 .trust[hidden]{display:none}
-/* Роли: четыре карточки в один ряд, чтобы видна была многофункциональность */
-@media (min-width:1180px){
-.roles-section{padding-top:72px;padding-bottom:80px}
-.roles-section .section-heading{margin-bottom:30px}
-.roles-section .role-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
-.roles-section .role-card{padding:12px 12px 22px;border-radius:16px}
-.roles-section .role-preview{padding:40px 14px 14px;margin-bottom:18px}
-.roles-section .preview-kicker{left:14px;top:14px;font-size:9px;letter-spacing:1.1px}
-.roles-section .role-card>.role-label{margin:0 6px;font-size:11px}
-.roles-section .role-card>h3{font-size:21px;line-height:1.2;margin:10px 6px 10px}
-.roles-section .role-card>p{font-size:14px;line-height:1.55;margin:0 6px 18px}
-.roles-section .role-tools{margin:auto 6px 0;padding-top:14px;font-size:9px;letter-spacing:.5px}
-}
-/* настоящие экраны: админка целиком, телефон — верхняя часть с плавным краем */
-@media (min-width:1180px){
-.roles-section .role-preview-admin.actual-role-preview{padding:34px 0 0!important}
-.roles-section .role-preview-admin.actual-role-preview img{width:100%;height:auto;transform:none;object-fit:initial}
-.roles-section .role-preview-player.actual-role-preview img{width:150px;transform:none}
-}
-/* макеты экранов флора и владельца */
-@media (min-width:1180px){
-.roles-section .role-preview-top{font-size:11px}
-.roles-section .role-preview-top>span{font-size:8px}
-.roles-section .role-owner-count{margin-top:10px}
-.roles-section .role-owner-count strong{font-size:30px}
-.roles-section .role-owner-count>small{font-size:11px}
-.roles-section .role-bars{height:36px;margin-top:8px;gap:8px}
-.roles-section .role-owner-bottom{margin-top:8px;font-size:10px}
-}
-/* подсказка «Открыть экран» — только при наведении, чтобы не закрывать макет */
-@media (min-width:1180px){
-.roles-section .zoom-hint{opacity:0;transition:opacity .2s}
-.roles-section .screen-zoom:hover .zoom-hint,.roles-section .screen-zoom:focus-visible .zoom-hint{opacity:1}
-}
-/* Флор: настоящий экран таймера Doyle вместо макета */
-.role-preview-floor.actual-role-preview{background:#08080c!important}
-.role-preview-floor.actual-role-preview img{display:block;height:100%;width:auto;max-width:100%;margin:0 auto;object-fit:contain;transform:none;border:0;border-radius:0}
-.role-preview-floor.actual-role-preview .screen-zoom{background:#08080c}
-@media (min-width:1180px){
-.roles-section .role-preview{height:232px!important}
-.roles-section .role-preview-floor.actual-role-preview{padding-top:36px!important}
-}
-/* Персонажи ролей: «стикер» на нижнем краю превью */
-.roles-section .role-card{position:relative}
-.role-figure{position:absolute;z-index:4;right:16px;top:202px;height:130px;width:auto;pointer-events:none;filter:drop-shadow(0 10px 14px #00000066);transition:transform .25s}
-.role-card:hover .role-figure{transform:translateY(-4px) rotate(-1.5deg)}
-.roles-section .zoom-hint{right:auto!important;left:12px}
-@media (min-width:1180px){
-.role-figure{right:12px}
-}
-@media (max-width:640px){
-.role-figure{top:202px;height:120px;right:18px}
-}
-@media (min-width:1180px){
-.role-figure{top:150px;height:140px}
-}
 /* Hero v2 — светлая страница, тёмный продукт (DESIGN.md) */
 a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
 .site-header{background:#fbfbfdeb;border-bottom-color:var(--line)}
@@ -900,55 +464,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var
 .header-inner nav a:hover{color:var(--accent)}
 .menu-toggle span{background:var(--ink)}
 .header-inner nav.open{background:var(--page);border-bottom-color:var(--line)}
-/* Roles v2 — тёмная секция на токенах */
-.roles-section{background:var(--dark);color:var(--dark-ink)}
-.roles-section .section-heading h2{color:var(--dark-ink);text-wrap:balance}
-.roles-section .section-heading .green{color:var(--glow)}
-.roles-section .eyebrow{color:var(--glow)}
-.roles-section .section-heading>p{color:var(--dark-ink-2)}
-.role-card{background:var(--dark-card);border-color:var(--dark-line);border-radius:var(--radius-card)}
-.role-card:hover{border-color:#34423b}
-.role-card>.role-label{color:var(--dark-ink-2)}
-.role-card>h3{color:var(--dark-ink)}
-.role-card>p{color:var(--dark-ink-2)}
-.role-tools{color:var(--dark-ink-2);border-color:var(--dark-line)}
-.role-preview{background:var(--dark)!important;border-color:var(--dark-line)}
-.preview-kicker,.role-preview-top>span,.role-preview-floor .role-preview-top,.role-preview-owner .role-preview-top b,.role-preview-floor .role-preview-top b{color:var(--dark-ink-2)}
-.actual-role-preview .screen-zoom{background:var(--dark)}
-.role-preview-player:after{background:linear-gradient(transparent,var(--dark))}
-.role-owner-count>small,.role-owner-bottom{color:var(--dark-ink-2)}
-.role-owner-count strong,.role-owner-bottom b{color:var(--dark-ink)}
-.role-bars>i{background:var(--glow)}
-.role-bars>i:nth-child(even){background:#1f5a42}
-/* Платформа */
-.platform{background:var(--dark);color:var(--dark-ink)}
-.platform .eyebrow{color:var(--glow)}
-.platform .section-heading h2{color:var(--dark-ink);text-wrap:balance}
-.platform .section-heading .muted-heading{color:var(--dark-ink-2)}
-.platform .section-heading>p{color:var(--dark-ink-2)}
-.platform-layout{background:var(--dark-card);border-color:var(--dark-line);border-radius:var(--radius-island)}
-.feature-tabs{background:var(--dark-card)}
-.feature-tab{border-bottom-color:var(--dark-line)}
-.feature-tab b{color:var(--dark-ink)}
-.feature-tab small{color:var(--dark-ink-2)}
-.tab-number,.tab-arrow{color:var(--dark-ink-2)}
-.feature-tab.active b,.feature-tab.active .tab-number,.feature-tab.active .tab-arrow,.feature-tab:hover b{color:var(--glow)}
-.feature-tab.active:before{background:var(--glow)}
-.feature-demo{background:var(--dark);border-left-color:var(--dark-line)}
-.demo-topbar,.demo-topbar .demo-label,.demo-caption,.actual-demo-heading p,.screen-subtitle{color:var(--dark-ink-2)}
-.window-dots i{background:var(--dark-line)}
-.actual-demo-heading h3{color:var(--dark-ink)}
-.demo-screen{background:var(--dark-card);border-color:var(--dark-line);color:var(--dark-ink)}
-.demo-screen .screen-subtitle,.demo-screen small,.finance-table th{color:var(--dark-ink-2)}
-.demo-screen .screen-title h3,.finance-table td{color:var(--dark-ink)}
-.finance-stats,.finance-table td,.finance-table th{border-color:var(--dark-line)}
-.finance-table td:last-child{color:var(--glow)}
-/* Игрок */
-.player-section{background:var(--surface-soft)}
 /* телефон прямо на светлой странице, как в героe — без тёмной подложки */
-.player-section .player-art.real-player-art{background:none;border:0;box-shadow:none}
-.player-section .real-screen-caption{color:var(--ink-2)}
-.player-copy p{color:var(--ink-2)}
 .check-list li{color:var(--ink)}
 .check-list li:before{background:var(--dark);color:var(--glow)}
 .inline-link{color:var(--accent);border-bottom-color:var(--accent)}
@@ -969,14 +485,6 @@ a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var
 .quote-mark{background:var(--dark-card);border-color:var(--dark-line);color:var(--glow)}
 .trust-quote small{color:var(--dark-ink-2)}
 /* Под ваш клуб */
-.clubs{background:var(--surface-soft)}
-.clubs .eyebrow{color:var(--accent)}
-.clubs-grid h2{color:var(--ink)}
-.clubs-grid>div>p{color:var(--ink-2)}
-.customization{background:var(--dark);border-color:var(--dark-line);border-radius:var(--radius-island);box-shadow:0 30px 70px -20px #0b0f0d47}
-.customize-head{color:var(--glow)}
-.customize-head>span:last-child,.color-picker>span{color:var(--dark-ink)}
-.customization .customization-note{color:var(--dark-ink-2)}
 .swatch{border-color:var(--dark)}
 /* FAQ */
 .faq-section{background:var(--page)}
@@ -1046,7 +554,6 @@ footer{border-top-color:var(--dark-line)}
 .video-heading h2{color:var(--ink)}
 .video-heading>p{color:var(--ink-2)}
 .video-preview{background:var(--dark);border:0;box-shadow:0 30px 70px -20px #0b0f0d47}
-.theme-preview{--club-color:#0B7A55}
 .contact-section{background:var(--page);border:0;padding:0 0 96px}
 .contact-inner{background:var(--dark);color:var(--dark-ink);border-radius:var(--radius-island);padding:88px 34px;box-shadow:0 30px 70px -20px #0b0f0d47}
 .contact-inner h2{color:var(--dark-ink)}
@@ -1062,12 +569,6 @@ footer .brand .green{color:var(--accent)}
 .contact-inner{padding:56px 22px;border-radius:24px}
 }
 /* Превью бренда: акценты следуют цвету клуба, без «казино-золота» */
-.theme-preview{background:var(--dark-card);color:var(--dark-ink);border-color:var(--dark-line);box-shadow:none}
-.preview-mark{color:#fff}
-.preview-tournament{border-color:var(--dark-line)}
-.preview-tournament>span,.preview-tournament p{color:var(--dark-ink-2)}
-.preview-tournament h3{color:var(--dark-ink)}
-.preview-register{background:var(--club-color);color:#fff;transition:background-color .3s}
 .video-preview>img{object-position:50% 80%}
 /* Герой: MacBook с панелью игроков + телефон с приложением, прямо на светлой странице */
 .hero-devices{position:relative;align-self:center;width:100%;max-width:640px;margin-left:auto;padding:0 6% 28px 0}
@@ -1097,5 +598,81 @@ footer .brand .green{color:var(--accent)}
 .iphone-status{position:absolute;inset:2.9% 10% auto 11%;display:flex;justify-content:space-between;align-items:center;z-index:2;color:#fff;font:600 clamp(6px,1.1vw,11px)/1 var(--font)}
 .iphone-status i{width:9%;aspect-ratio:2.1;border:1px solid #ffffffb3;border-radius:3px;background:linear-gradient(90deg,#fff 70%,transparent 70%) content-box;padding:1px}
 .hero-phone.iphone{position:absolute;transform:rotate(3deg)}
-.player-section .real-player-frame.iphone{transform:rotate(-2deg)}
 .iphone .zoom-hint{bottom:5%;right:6%}
+/* 01 · Приложение вашего клуба: iPhone + примерка цвета */
+.app-section{background:var(--page)}
+.app-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:72px;align-items:center}
+.app-art{display:flex;flex-direction:column;align-items:center;gap:18px}
+.app-phone{width:250px;max-width:70%;transform:rotate(-2deg)}
+.app-caption{font-size:13px;color:var(--ink-2)}
+.app-copy .eyebrow{color:var(--accent)}
+.app-copy h2{color:var(--ink);text-wrap:balance}
+.app-copy>p{color:var(--ink-2);font-size:18px;line-height:1.6;max-width:480px}
+.brand-tint{position:absolute;inset:0;background:var(--club-color,transparent);mix-blend-mode:color;opacity:0;pointer-events:none;transition:opacity .3s,background-color .3s}
+.is-tinted .brand-tint{opacity:.55}
+.brand-picker{display:flex;align-items:center;gap:16px;margin:0 0 28px;font-size:15px;color:var(--ink)}
+.brand-picker [role=group]{display:flex;gap:10px}
+.brand-picker .swatch{width:28px;height:28px;border:3px solid var(--page);outline:1.5px solid var(--line);cursor:pointer;transition:transform .15s}
+.brand-picker .swatch.selected{outline:2px solid var(--swatch);outline-offset:0}
+.muted-heading{color:var(--ink-2)}
+/* 02 · Система для команды: вкладки по ролям */
+.system-section{background:var(--surface-soft)}
+.system-section .eyebrow{color:var(--accent)}
+.system-section .section-heading h2{color:var(--ink);text-wrap:balance}
+.system-section .section-heading>p{color:var(--ink-2)}
+.system-layout{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:32px;align-items:start}
+.role-tabs{display:flex;flex-direction:column;gap:12px}
+.role-tab{display:flex;align-items:center;gap:16px;width:100%;text-align:left;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-card);color:var(--ink);font:inherit;cursor:pointer;transition:border-color .2s,background-color .2s}
+.role-tab:hover{border-color:#c9c9cf}
+.role-tab.active{background:var(--dark);border-color:var(--dark);color:var(--dark-ink)}
+.role-tab-icon{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--surface-soft);color:var(--accent)}
+.role-tab.active .role-tab-icon{background:var(--dark-card);color:var(--glow)}
+.role-tab-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.role-tab small{display:block;font:500 13px/1.3 "JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em;color:var(--ink-2);margin-bottom:4px}
+.role-tab.active small{color:var(--dark-ink-2)}
+.role-tab b{font-size:18px;font-weight:600;line-height:1.3}
+.role-tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.role-stage{position:relative;background:var(--dark);border-radius:var(--radius-island);padding:56px 34px 34px;box-shadow:0 30px 70px -20px #0b0f0d47}
+.role-kicker{position:absolute;left:34px;top:22px;font:500 13px/1.3 "JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em;color:var(--dark-ink-2)}
+.role-screen{display:block;width:78%;aspect-ratio:16/10;border-radius:12px;overflow:hidden;background:#08080c;border:1px solid var(--dark-line)}
+.role-screen img{width:100%;height:100%;object-fit:contain;object-position:center}
+.role-persona{position:absolute;right:2%;bottom:0;width:22%;max-width:170px;height:auto;pointer-events:none}
+.role-points{list-style:none;margin:20px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.role-points li{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-card);padding:16px 18px;font-size:15px;line-height:1.5;color:var(--ink)}
+.owner-report{display:flex;flex-direction:column;padding:22px 24px;background:var(--dark-card);color:var(--dark-ink)}
+.owner-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:auto}
+.owner-head b{font-size:17px;font-weight:600}
+.owner-head span{font:500 12px/1.3 "JetBrains Mono",ui-monospace,monospace;letter-spacing:.1em;color:var(--dark-ink-2)}
+.owner-report small{font-size:14px;color:var(--dark-ink-2);margin-top:14px}
+.owner-report strong{font-size:44px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.1}
+.owner-report strong span{font-size:26px;font-weight:500;color:var(--dark-ink-2)}
+.owner-bars{display:flex;align-items:flex-end;gap:10px;height:34%;margin:14px 0;border-bottom:1px solid var(--dark-line)}
+.owner-bars i{flex:1;height:var(--h);background:var(--dark-line);border-radius:4px 4px 0 0}
+.owner-bars i:nth-child(6){background:var(--glow)}
+.owner-stats{display:flex;gap:22px;font-size:14px;color:var(--dark-ink-2)}
+.owner-stats b{color:var(--dark-ink);font-weight:600}
+@media (max-width:1099px){
+.app-layout{gap:40px}
+.system-layout{grid-template-columns:1fr}
+.role-tabs{flex-direction:row;overflow-x:auto}
+.role-tab{flex:1 0 220px}
+}
+@media (max-width:760px){
+.app-layout{grid-template-columns:1fr}
+.app-art{order:2}
+.role-stage{padding:48px 18px 18px;border-radius:24px}
+.role-kicker{left:18px;top:18px}
+.role-screen{width:100%}
+.role-persona{width:24%;right:-2%;bottom:-6px}
+.role-points{grid-template-columns:1fr}
+.owner-report strong{font-size:32px}
+.owner-report{padding:16px}
+.brand-picker{flex-wrap:wrap;gap:12px}
+}
+@media (max-width:640px){
+.role-tabs{flex-direction:column;overflow:visible}
+.role-tab{flex:none;padding:14px 16px}
+.role-tab b{font-size:16px}
+.role-tab-icon{width:38px;height:38px}
+}
+@media(max-width:760px){.role-stage .zoom-hint{display:none}}
