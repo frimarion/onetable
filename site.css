@@ -3005,34 +3005,8 @@ footer .brand .green {
 @keyframes am-bump { 40% { transform: scale(1.5); } }
 .am-clock { color: var(--dark-ink); font-variant-numeric: tabular-nums; }
 
-/* Пуш на экране телефона в герое */
+/* Экран телефона в герое: запись на турнир по нажатию */
 .hero-phone .iphone-screen { container-type: inline-size; }
-.push {
-  position: absolute;
-  z-index: 3;
-  top: 13%;
-  left: 4%;
-  right: 4%;
-  display: flex;
-  gap: 4cqw;
-  align-items: flex-start;
-  padding: 4cqw 4.5cqw;
-  border-radius: 6cqw;
-  background: #f2f5f3eb;
-  color: var(--ink);
-  box-shadow: 0 6px 20px -6px #0006;
-  backdrop-filter: blur(10px);
-  transform: translateY(-160%);
-  opacity: 0;
-  transition: transform .45s cubic-bezier(.2,.8,.2,1), opacity .3s;
-  pointer-events: none;
-}
-.push.show { transform: none; opacity: 1; }
-.push img { width: 13cqw; padding: 2cqw; border-radius: 3.5cqw; background: var(--dark); flex: none; }
-.push span { display: grid; grid-template-columns: 1fr auto; gap: .6cqw 2cqw; min-width: 0; font-size: 5cqw; line-height: 1.25; }
-.push b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.push small { font-size: 4.4cqw; color: var(--muted); }
-.push em { grid-column: 1/-1; font-style: normal; }
 
 /* Таймер турнира во вкладке «Флор» */
 .timer-mock {
@@ -3219,23 +3193,22 @@ footer .brand .green {
 
 /* Герой: телефон стоит ровно по линии основания Mac; пуш — как уведомление iOS */
 .hero-phone.iphone { transform: none; right: 0; bottom: 28px; }
-.push {
-  top: 11.5%;
-  left: 3.5%;
-  right: 3.5%;
-  align-items: center;
-  gap: 3.4cqw;
-  padding: 3.4cqw 4cqw;
-  border-radius: 7cqw;
-  background: #f6f7f6ee;
-  box-shadow: 0 0 0 .5px #0000001a, 0 12px 28px -10px #000000a6;
-  backdrop-filter: blur(18px) saturate(1.5);
-  transform: translateY(-150%) scale(.96);
-}
-.push.show { transform: none; }
-.push img { width: 15cqw; padding: 2.4cqw; border-radius: 4cqw; background: var(--dark); box-shadow: inset 0 0 0 .5px #ffffff22; }
-.push span { gap: .8cqw 2cqw; font-size: 4.8cqw; line-height: 1.25; }
-.push b { font-size: 5cqw; letter-spacing: -.01em; }
-.push small { font-size: 4cqw; color: #6e6e73; align-self: center; }
-.push em { color: var(--ink); font-size: 4.8cqw; line-height: 1.3; white-space: normal; }
 @media (max-width: 640px) { .hero-phone.iphone { bottom: 20px; } }
+
+/* Запись на турнир: подсказка, нажатие, подтверждение */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.hero-phone .screen-zoom { cursor: pointer; }
+.hero-phone .pm-cta { transition: background .35s, color .35s, transform .18s, box-shadow .35s; }
+.hero-phone .pm-cta.hint { animation: cta-hint 2.4s ease-out infinite; }
+@keyframes cta-hint {
+  0% { box-shadow: 0 calc(6 * var(--u)) calc(16 * var(--u)) #0006, 0 0 0 0 #e9cf98aa; }
+  70%, 100% { box-shadow: 0 calc(6 * var(--u)) calc(16 * var(--u)) #0006, 0 0 0 calc(9 * var(--u)) #e9cf9800; }
+}
+.hero-phone .pm-cta.busy { transform: scale(.96); opacity: .9; }
+.hero-phone .pm-cta.done { background: linear-gradient(180deg,#6cecb2,#2bd98a); color: #04130c; box-shadow: 0 calc(6 * var(--u)) calc(18 * var(--u)) #2bd98a55; animation: cta-done .5s cubic-bezier(.2,.8,.2,1); }
+@keyframes cta-done { from { transform: scale(.94); } 60% { transform: scale(1.04); } to { transform: none; } }
+.hero-phone .pm-meta span.bump { animation: seat-bump .6s cubic-bezier(.2,.8,.2,1); color: #6cecb2; }
+@keyframes seat-bump { 35% { transform: scale(1.18); } }
+.tap-ripple { position: absolute; z-index: 4; width: 16cqw; height: 16cqw; margin: -8cqw 0 0 -8cqw; border-radius: 50%; background: #ffffff55; pointer-events: none; animation: tap-ripple .65s ease-out forwards; }
+@keyframes tap-ripple { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.7); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .hero-phone .pm-cta.hint, .hero-phone .pm-cta.done, .hero-phone .pm-meta span.bump { animation: none; } }

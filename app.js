@@ -112,7 +112,7 @@ function countUp(el, ms = 1200) {
   requestAnimationFrame(step);
 }
 
-// 1. Админка: игроки отмечаются, реентри растут, уровень тикает; в герое на телефон приходит пуш
+// 1. Админка: игроки отмечаются, реентри растут, уровень тикает
 const waiting = [['ivan', 'Иван'], ['maria', 'Мария'], ['pavel', 'Павел'], ['ekaterina', 'Екатерина']];
 $$('.admin-mock').forEach(mock => {
   const live = $('.am-live', mock);
@@ -122,7 +122,6 @@ $$('.admin-mock').forEach(mock => {
   const count = $('.am-count b', mock);
   const rows = $$('.am-row:not(.am-head)', mock);
   const last = rows[rows.length - 1];
-  const push = mock.closest('.hero') && $('#hero-push');
   let left = 14 * 60 + 52, players = 24, step = 0, next = 0, visible = false;
   const flash = row => { row.classList.add('am-flash'); setTimeout(() => row.classList.remove('am-flash'), 1400); };
   const actions = [
@@ -131,7 +130,6 @@ $$('.admin-mock').forEach(mock => {
       const st = $('.am-status', last); st.classList.remove('wait'); st.textContent = 'В игре';
       count.textContent = `${++players} / 45`;
       flash(last);
-      if (push) { push.classList.add('show'); setTimeout(() => push.classList.remove('show'), 3200); }
     },
     () => { // реентри у случайного игрока в игре
       const row = rows[[0, 3, 1, 4][step % 4]];
@@ -268,3 +266,47 @@ $$('.owner-report').forEach(report => {
   if (!reduceMotion) report.classList.add('pre');
   whenVisible(report, () => { report.classList.remove('pre'); $$('[data-count]', report).forEach(n => countUp(n)); }, { threshold: 0.5 });
 });
+
+// 3. Телефон в герое: нажатие записывает на турнир, который показан на главной
+(() => {
+  const btn = $('.hero-phone [data-register]');
+  if (!btn) return;
+  const screen = btn.closest('.iphone-screen');
+  const cta = $('.pm-cta', btn);
+  const seats = $('.pm-meta span:last-child', btn).lastChild;
+  const live = $('#reg-status');
+  const [free, taken] = ['9 из 45', '10 из 45'];
+  let state = 'idle', timers = [];
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+  const show = (s, text, seatText) => {
+    state = s;
+    cta.classList.remove('busy', 'done', 'hint');
+    if (s !== 'idle') cta.classList.add(s); else cta.classList.add('hint');
+    cta.textContent = text;
+    if (seatText && seats.textContent !== seatText) {
+      seats.textContent = seatText;
+      const box = seats.parentNode;
+      box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump');
+    }
+  };
+  show('idle', 'Записаться на турнир');
+  btn.addEventListener('click', e => {
+    if (state !== 'idle') return;
+    if (!reduceMotion) {
+      const r = screen.getBoundingClientRect(), c = e.detail ? e : $('.pm-cta', btn).getBoundingClientRect();
+      const x = e.detail ? e.clientX : c.left + c.width / 2, y = e.detail ? e.clientY : c.top + c.height / 2;
+      const dot = document.createElement('i');
+      dot.className = 'tap-ripple';
+      dot.style.left = (x - r.left) / r.width * 100 + '%';
+      dot.style.top = (y - r.top) / r.height * 100 + '%';
+      screen.append(dot);
+      setTimeout(() => dot.remove(), 700);
+    }
+    show('busy', 'Записываем…');
+    later(() => {
+      show('done', '✓ Вы записаны', taken);
+      live.textContent = 'Вы записаны на Classic Tournament, завтра в 19:00';
+    }, reduceMotion ? 0 : 900);
+    later(() => { show('idle', 'Записаться на турнир', free); live.textContent = ''; }, reduceMotion ? 6000 : 5600);
+  });
+})();
