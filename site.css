@@ -3216,3 +3216,26 @@ footer .brand .green {
 .pm-tabs svg { width: calc(24 * var(--u)); height: calc(24 * var(--u)); fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
 .pm-tabs .on { color: var(--gold2); }
 #screen-dialog .player-mock { width: 100%; }
+
+/* Герой: телефон стоит ровно по линии основания Mac; пуш — как уведомление iOS */
+.hero-phone.iphone { transform: none; right: 0; bottom: 28px; }
+.push {
+  top: 11.5%;
+  left: 3.5%;
+  right: 3.5%;
+  align-items: center;
+  gap: 3.4cqw;
+  padding: 3.4cqw 4cqw;
+  border-radius: 7cqw;
+  background: #f6f7f6ee;
+  box-shadow: 0 0 0 .5px #0000001a, 0 12px 28px -10px #000000a6;
+  backdrop-filter: blur(18px) saturate(1.5);
+  transform: translateY(-150%) scale(.96);
+}
+.push.show { transform: none; }
+.push img { width: 15cqw; padding: 2.4cqw; border-radius: 4cqw; background: var(--dark); box-shadow: inset 0 0 0 .5px #ffffff22; }
+.push span { gap: .8cqw 2cqw; font-size: 4.8cqw; line-height: 1.25; }
+.push b { font-size: 5cqw; letter-spacing: -.01em; }
+.push small { font-size: 4cqw; color: #6e6e73; align-self: center; }
+.push em { color: var(--ink); font-size: 4.8cqw; line-height: 1.3; white-space: normal; }
+@media (max-width: 640px) { .hero-phone.iphone { bottom: 20px; } }
