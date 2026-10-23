@@ -1071,15 +1071,15 @@ footer .brand .green{color:var(--accent)}
 .video-preview>img{object-position:50% 80%}
 /* Герой: MacBook с панелью игроков + телефон с приложением, прямо на светлой странице */
 .hero-devices{position:relative;align-self:center;width:100%;max-width:640px;margin-left:auto;padding:0 6% 28px 0}
-.mac{position:relative;filter:drop-shadow(0 30px 40px #0b0f0d26)}
-.mac-screen{position:relative;background:#0B0F0D;border:1px solid #2a2d2c;border-radius:18px 18px 4px 4px;padding:2.6% 2.6% 3%}
+.mac{position:relative}
+.mac-screen{position:relative;background:#0B0F0D;border:1px solid #2a2d2c;border-radius:18px 18px 4px 4px;padding:2.6% 2.6% 3%;box-shadow:0 30px 50px -24px #0b0f0d40}
 .mac-screen:before{content:"";position:absolute;left:50%;top:0;width:13%;height:2.6%;min-height:7px;transform:translateX(-50%);background:#0B0F0D;border-radius:0 0 6px 6px;z-index:2}
 .mac-screen .screen-zoom{border-radius:4px;background:#101013}
 .mac-screen img{aspect-ratio:1265/712;object-fit:cover;object-position:left top}
 .mac-base{position:relative;width:112%;margin-left:-6%;height:clamp(10px,2.4vw,16px);background:#D7D8DD;border-radius:2px 2px 14px 14px;border-top:1px solid #EDEDF0;box-shadow:inset 0 -2px 0 #BFC0C6}
 .mac-base:before{content:"";position:absolute;left:50%;top:0;width:16%;height:40%;transform:translateX(-50%);background:#C3C4CA;border-radius:0 0 8px 8px}
 .mac .zoom-hint{font-size:11px;padding:7px 10px;bottom:10px;right:10px}
-.hero-phone{position:absolute;right:0;bottom:0;width:27%;max-width:175px;z-index:3}
+.hero-phone{position:absolute;right:0;bottom:0;width:30%;max-width:200px;z-index:3}
 @media (max-width:640px){
 .hero-devices{max-width:none;margin:28px 0 0;padding:0 8% 20px 0}
 .mac-screen{border-radius:12px 12px 3px 3px}
@@ -1090,10 +1090,10 @@ footer .brand .green{color:var(--accent)}
 .iphone:before,.iphone:after{content:"";position:absolute;width:2.2%;background:#2C2C2E;border-radius:2px}
 .iphone:before{right:-1.6%;top:24%;height:11%}
 .iphone:after{left:-1.6%;top:19%;height:17%;background:linear-gradient(#2C2C2E 0 42%,transparent 42% 58%,#2C2C2E 58%)}
-.iphone-screen{position:relative;overflow:hidden;border-radius:12.5%/5.8%;background:#0B1A13;aspect-ratio:390/900;padding-top:12%}
-.iphone-screen .screen-zoom{border-radius:0;height:100%;background:transparent}
-.iphone-screen img{width:100%;height:100%;object-fit:cover;object-position:top}
-.iphone-island{position:absolute;left:50%;top:2.2%;width:31%;height:3.6%;transform:translateX(-50%);background:#000;border-radius:999px;z-index:2}
+.iphone-screen{position:relative;overflow:hidden;border-radius:13%/6%;background:#0a261a;padding-top:12%}
+.iphone-screen .screen-zoom{border-radius:0;height:auto;background:transparent}
+.iphone-screen img{width:100%;height:auto;aspect-ratio:390/844;object-fit:fill}
+.iphone-island{position:absolute;left:50%;top:2.6%;width:31%;height:3.4%;transform:translateX(-50%);background:#000;border-radius:999px;z-index:2}
 .iphone-status{position:absolute;inset:2.9% 10% auto 11%;display:flex;justify-content:space-between;align-items:center;z-index:2;color:#fff;font:600 clamp(6px,1.1vw,11px)/1 var(--font)}
 .iphone-status i{width:9%;aspect-ratio:2.1;border:1px solid #ffffffb3;border-radius:3px;background:linear-gradient(90deg,#fff 70%,transparent 70%) content-box;padding:1px}
 .hero-phone.iphone{position:absolute;transform:rotate(3deg)}
