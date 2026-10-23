@@ -315,3 +315,8 @@ footer{background:var(--dark);border-top-color:var(--dark-line)}footer .brand .g
 .contact-form label{color:var(--ink)}.contact-form label i,.form-fallback p,.form-done p{color:var(--ink-2)}
 .contact-form input,.contact-form textarea{background:var(--surface-soft);border-color:var(--line)}
 .contact-form input:focus-visible,.contact-form textarea:focus-visible{outline:2px solid var(--accent);border-color:var(--accent)}
+
+/* Белый лейбл: цвета клубов в подписи героя */
+.hero-footnote{align-items:center;gap:14px;font-size:14px}
+.hero-footnote>span:before{display:none}
+.brand-dots{display:inline-flex}.brand-dots i{width:22px;height:22px;border-radius:50%;border:2px solid var(--page);margin-left:-6px}.brand-dots i:first-child{margin-left:0}
