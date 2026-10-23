@@ -1,0 +1,8 @@
+/* Дизайн-токены OneTable — см. DESIGN.md. Подключается после design.css. */
+:root{
+  --ink:#1D1D1F;--ink-2:#6E6E73;--line:#E5E5EA;
+  --page:#FBFBFD;--surface:#FFFFFF;--surface-soft:#F5F5F7;
+  --accent:#0B7A55;--accent-hover:#09694A;--green:var(--accent);
+  --dark:#0B0F0D;--dark-card:#131A16;--dark-line:#1C2420;--dark-ink:#F2F5F3;--dark-ink-2:#9BA8A1;--glow:#2BD98A;
+  --radius-island:32px;--radius-card:16px;
+}

@@ -218,3 +218,27 @@ footer .brand{color:#fff}footer .brand .green{color:#4fd1a1}
 @media(min-width:1180px){.role-figure{top:174px;height:125px;right:12px}}
 @media(max-width:640px){.role-figure{top:202px;height:120px;right:18px}}
 @media(min-width:1180px){.role-figure{top:150px;height:140px}}
+
+/* Hero v2 — светлая страница, тёмный продукт (DESIGN.md) */
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.site-header{background:#fbfbfdeb;border-bottom-color:var(--line)}
+.header-cta.button-dark{background:transparent;color:var(--ink);border-color:var(--ink);transition:background-color .2s,color .2s}
+.header-cta.button-dark:hover{background:var(--ink);color:#fff;transform:none;box-shadow:none}
+.hero{background:var(--page)}
+.hero .eyebrow{color:var(--accent)}.hero .eyebrow .status-dot{background:var(--accent)}
+.hero h1{color:var(--ink);text-wrap:balance}.hero h1 .green{color:var(--accent)}
+.hero-description{color:var(--ink-2)}
+.hero .text-button{color:var(--ink)}.hero .play-small{border-color:var(--line);color:var(--ink);background:var(--surface)}
+.hero .text-button:hover .play-small{background:var(--accent);border-color:var(--accent);color:#fff}
+.hero-footnote{color:var(--ink-2)}.hero-footnote>span:before{background:var(--accent)}
+.hero .button-green{background:var(--accent);box-shadow:none}.hero .button-green:hover{background:var(--accent-hover);box-shadow:none}
+.hero-visual{background:var(--dark);border-color:var(--dark-line);border-radius:var(--radius-island);box-shadow:0 30px 70px -20px #0b0f0d47}
+.visual-grid{display:none!important}
+.hero-visual .orbit-label{color:var(--dark-ink-2)}.hero-visual .orbit-label .status-dot{background:var(--glow)}
+.product-label{color:var(--dark-ink)}.product-label>span{background:var(--dark-card);border-color:var(--dark-line);color:var(--glow)}
+.product-label small{color:var(--dark-ink-2);font-size:12px}.product-label b{font-size:14px}
+.hero-bottom{border-top-color:var(--line);color:var(--ink-2)}.hero-bottom a{color:var(--ink)}
+.site-header .brand{color:var(--ink)}.site-header .brand .green{color:var(--accent)}
+.header-inner nav{color:var(--ink)}.header-inner nav a:hover{color:var(--accent)}
+.menu-toggle span{background:var(--ink)}
+.header-inner nav.open{background:var(--page);border-bottom-color:var(--line)}
