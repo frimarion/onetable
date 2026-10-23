@@ -12,3 +12,143 @@ html{scroll-padding-top:100px}body{overflow-x:hidden}button,a{-webkit-tap-highli
 @media(max-width:640px){html{scroll-padding-top:85px}.container{padding-left:22px;padding-right:22px}.site-header{height:68px}.hero-grid{display:flex;flex-direction:column;gap:0;padding-top:25px;padding-bottom:25px;min-height:0}.hero .eyebrow{font-size:9px;letter-spacing:1.2px}.hero h1{font-size:45px;letter-spacing:-2.3px;line-height:1.04;margin:17px 0}.hero-description{font-size:16px;line-height:1.6;max-width:350px;margin:0 0 21px}.hero-actions{display:grid;grid-template-columns:1fr;gap:5px;width:100%}.hero-actions .button{width:100%;padding:14px 18px;font-size:14px}.hero-actions .text-button{font-size:13px;justify-content:center;padding:10px}.hero-footnote{display:none}.hero-visual{height:304px;width:100%;margin:15px 0 0;border-radius:18px;transform:none}.hero-visual .orbit-label{top:17px;left:16px;font-size:7px;right:auto}.product-label-admin{top:45px;left:16px;grid-template-columns:21px 1fr;gap:2px 6px}.product-label>span{width:21px;height:21px;font-size:8px}.product-label b{font-size:10px}.product-label small{font-size:8px}.dashboard.real-dashboard{width:92%;left:4%;top:88px;transform:rotate(-1deg);border-width:3px}.hero .real-phone.phone{width:89px;height:185px;right:5%!important;bottom:17px;border-width:3px;border-radius:14px;transform:rotate(3deg)}.product-label-player{bottom:23px;left:17px;max-width:calc(100% - 127px)}.hero-bottom{font-size:10px;padding-top:15px;padding-bottom:15px}.proof-strip{padding:25px 0}.proof-inner{gap:16px;justify-content:center}.proof-inner>p{font-size:12px}.club-logo{width:calc(50% - 8px);min-height:62px;padding:6px 10px}.club-logo img{height:44px}.section{padding:54px 0}.section-heading{gap:0;margin-bottom:26px}.section-heading h2{font-size:31px;letter-spacing:-1.2px}.section-heading>p{font-size:16px;line-height:1.65;margin-top:17px}.feature-tabs{padding:15px 11px;gap:8px}.feature-tab b{font-size:13px}.feature-tab.active:before{bottom:-16px}.feature-demo{padding:19px 13px;border-left:0}.demo-topbar .demo-label{display:none}.actual-demo-heading p{font-size:14px;line-height:1.6}.actual-demo-heading h3{font-size:22px}.actual-admin-demo .screen-zoom{overflow:hidden;height:215px}.actual-admin-demo .screen-zoom img{width:590px;min-width:590px}.actual-admin-demo .zoom-hint{position:absolute;left:auto;right:10px;bottom:10px;margin:0;font-size:10px!important}.demo-caption{font-size:11px}.finance-stats{gap:8px}.finance-stats small{font-size:8px}.finance-stats strong{font-size:18px}.finance-table{font-size:10px}.finance-table th{font-size:9px}.finance-table td,.finance-table th{padding:12px 5px}.player-section{padding:54px 0}.player-layout{display:flex;flex-direction:column;padding-right:22px;gap:28px}.player-copy{order:0}.player-art.real-player-art{order:1;margin:0;height:510px;padding:22px;gap:12px;border-radius:18px}.real-player-frame{width:203px;max-width:90%;border-width:5px}.real-screen-caption{font-size:11px}.player-copy h2{font-size:32px}.player-copy p{font-size:16px;margin-bottom:20px}.check-list{gap:13px}.check-list li{font-size:14px;padding-left:29px}.check-list li:before{width:19px;height:19px}.inline-link{font-size:15px}.role-grid{gap:20px}.role-card{padding:13px 13px 23px;border-radius:16px}.role-preview{height:247px!important;margin-bottom:22px}.role-preview-player.actual-role-preview img{width:215px}.role-preview-admin.actual-role-preview img{width:150%;transform:translate(-8%,-2%)}.preview-kicker{font-size:8px;left:15px}.role-card>h3{font-size:26px}.role-card>p{font-size:15px;line-height:1.7}.role-tools{font-size:9px}.role-timer{font-size:58px;margin-top:17px;margin-bottom:13px}.role-blinds{margin-top:17px}.role-blinds b{font-size:18px}.role-preview-top>span{font-size:8px}.role-preview-floor .role-preview-top b{font-size:10px}.role-owner-count{margin-top:11px}.role-owner-count strong{font-size:33px}.role-bars{height:45px}.role-owner-bottom{font-size:9px}.workflow-line{gap:26px}.workflow-line article{position:relative;padding-left:53px}.step-circle{position:absolute;top:0;left:0;width:33px;height:33px;font-size:11px}.workflow-line article h3{font-size:21px;margin:3px 0 12px}.workflow-line article p{font-size:15px;line-height:1.65;margin-bottom:13px}.step-detail{font-size:9px}.video-section{padding:52px 0}.video-heading h2{font-size:34px}.video-heading>p{font-size:15px}.video-preview{border-radius:12px}.video-bottom{padding:16px}.video-bottom b{font-size:13px}.video-bottom>span{font-size:11px}.video-play{width:54px;height:54px}.clubs-grid{gap:30px}.clubs-grid h2{font-size:34px}.clubs-grid>div>p{font-size:16px}.customization{padding:17px}.faq-section{padding:52px 0}.faq-list summary{font-size:16px;padding:20px 0}.faq-list details p{font-size:15px}.contact-section{padding:60px 0}.contact-inner h2{font-size:35px;letter-spacing:-1.5px}.contact-inner>p{font-size:16px}.footer-inner{gap:18px}.screen-dialog-bar>span{font-size:12px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation:none!important;transition:none!important}}
 .role-preview-owner .role-preview-top b{color:#bfd7c7}
+
+/* Contact form */
+.contact-form{display:grid;gap:14px}.contact-form label{display:grid;gap:6px;font-size:14px;font-weight:550;color:#27483a}.contact-form label i{font-style:normal;font-weight:400;color:#6b8275}
+.contact-form input,.contact-form textarea{font:inherit;font-size:16px;font-weight:400;color:var(--ink);background:#f6f9f5;border:1px solid #cfdcd2;border-radius:8px;padding:13px 14px;width:100%;resize:vertical}
+.contact-form input::placeholder,.contact-form textarea::placeholder{color:#8a9c91}
+.contact-form input:focus-visible,.contact-form textarea:focus-visible{outline:3px solid #3fbc91;outline-offset:1px;border-color:var(--green);background:#fff}
+.contact-form .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.contact-form .button{margin-top:4px}.contact-form .button:disabled{opacity:.7;cursor:progress}
+.form-status{min-height:1.2em;margin:0;font-size:14px;color:#b3412b}
+.form-done{text-align:center;padding:20px 0 4px}.form-done .notice-icon{display:inline-grid;place-items:center;width:52px;height:52px;border-radius:50%;background:#e3efe8;color:var(--green);font-size:24px}.form-done h3{font-size:28px;margin:18px 0 8px}.form-done p{font-size:16px;color:#405a48;margin:0 0 22px}
+.form-fallback{display:grid;gap:14px}.form-fallback p{font-size:15px;line-height:1.6;color:#405a48;margin:0}.form-fallback .inquiry-text{background:#f3f6f0;padding:14px;border-radius:8px;color:#27483a}
+.copy-button{background:none;border:0;color:var(--green);font-size:15px;font-weight:550;text-align:left;padding:2px 0;cursor:pointer}
+.form-fallback #copy-status{font-size:13px;color:var(--green);min-height:1em}
+#contact-dialog{max-height:calc(100vh - 32px);overflow:auto}
+#contact-dialog [hidden]{display:none!important}
+
+/* Dark hero — продукт тёмный, поэтому и подложка тёмная */
+.hero{background:radial-gradient(ellipse 60% 70% at 78% 30%,#145340 0,transparent 70%),linear-gradient(160deg,#0c2b22,#071a14)}
+.hero .eyebrow{color:#8fd9bb}.hero .eyebrow .status-dot{background:#5fe0b0}
+.hero h1{color:#fff}.hero h1 .green{color:#5fe0b0}
+.hero-description{color:#c6ddd0}
+.hero .text-button{color:#fff}.hero .play-small{border-color:#3d7a66;color:#fff;background:#ffffff10}
+.hero-footnote{color:#a6c9b8}.hero-footnote>span:before{background:#5fe0b0}
+.hero .button-green{background:#0a9a72;box-shadow:0 12px 28px -12px #0a9a72aa}.hero .button-green:hover{background:#0cae82}
+.hero-visual{background:radial-gradient(ellipse at 75% 5%,#1d6a52aa,transparent 62%),#ffffff08;border-color:#2a5d4e;box-shadow:0 30px 70px -30px #00000099}
+.visual-grid{background-image:linear-gradient(#7fe0b514 1px,transparent 1px),linear-gradient(90deg,#7fe0b514 1px,transparent 1px);opacity:1}
+.hero-visual .orbit-label{color:#8fd9bb}
+.product-label{color:#eef8f2}.product-label>span{background:#16483a;border-color:#2f6f5a;color:#9fe6c8}.product-label small{color:#a6c9b8;font-size:11px}.product-label b{font-size:14px}
+.dashboard.real-dashboard{border-color:#2a5d4e;box-shadow:0 30px 55px -18px #000000aa}
+.hero .real-phone.phone{border-color:#0b241b;box-shadow:0 0 0 2px #3a7a66,0 24px 40px #00000080}
+.hero-bottom{border-top-color:#1f4d3f;color:#a6c9b8}.hero-bottom a{color:#d3ebdf}
+/* подпись «02» больше не наезжает на экран админки */
+.hero-visual{height:546px}.product-label-player{bottom:20px}
+@media(min-width:1500px){.hero-visual{height:591px}.product-label-player{bottom:22px}}
+@media(max-width:1150px){.hero-visual{height:496px}.product-label-player{bottom:20px}}
+@media(max-width:900px){.hero-visual{height:441px}.product-label-player{bottom:18px}}
+@media(max-width:640px){.hero-visual{height:330px}.product-label-player{bottom:8px}}
+
+/* Тёмная шапка */
+.site-header{background:#0a231bee;border-bottom-color:#1a4437}
+.site-header .brand{color:#fff}.site-header .brand .green{color:#4fd1a1}
+.header-inner nav{color:#bcd6c8}.header-inner nav a:hover{color:#fff}
+.site-header .header-cta{background:#0a9a72;color:#fff}.site-header .header-cta:hover{background:#0cae82}
+.menu-toggle span{background:#fff}
+.header-inner nav.open{background:#0a231b;border-bottom-color:#1a4437}
+
+/* Единый стиль секций: тёмные (hero, платформа, роли, видео) чередуются со светлыми (игрок, шаги) */
+/* Платформа */
+.platform{background:radial-gradient(ellipse 55% 60% at 85% 0,#14503d66,transparent 70%),#0b241c;color:#f2f7f2}
+.platform .eyebrow{color:#8cc2a9}
+.platform .section-heading h2{color:#f2f7f2}.platform .section-heading .muted-heading{color:#7fb59d}
+.platform .section-heading>p{color:#bcd1c5}
+.platform-layout{background:#102e25;border-color:#315246;border-radius:18px}
+.feature-tab{border-bottom-color:#25483c}
+.feature-tab b{color:#e6f1ea}.feature-tab small{color:#a9c4b5;font-size:13px;line-height:1.7}
+.tab-number,.tab-arrow{color:#7fb59d}
+.feature-tab.active b,.feature-tab.active .tab-number,.feature-tab.active .tab-arrow,.feature-tab:hover b{color:#5fe0b0}
+.feature-tab.active:before{background:#5fe0b0}
+.feature-demo{background:#0a1f18}
+.demo-topbar,.demo-topbar .demo-label{color:#8cb09e}.window-dots i{background:#2f5a4b}
+.demo-caption{color:#9fc4b2}
+.actual-demo-heading h3{color:#f2f7f2}.actual-demo-heading p,.screen-subtitle{color:#a9c4b5}
+/* Игрок: светлая секция, но карточка с телефоном — как карточка hero */
+.player-section{background:#f3f7f4}
+.player-section .player-art.real-player-art{background:radial-gradient(ellipse at 70% 0,#1d6a52aa,transparent 65%),#0f2e25;border:1px solid #2a5d4e;box-shadow:0 30px 60px -30px #0a2a1f88}
+.player-section .real-screen-caption{color:#a6c9b8}
+.player-copy p{color:#3f5a4b}
+.check-list li{color:#27483a;font-size:15px}.check-list li:before{background:#0f2e25;color:#5fe0b0}
+.inline-link{color:#0a7b5c;border-bottom-color:#0a7b5c66}
+/* Шаги */
+.workflow{background:#f3f7f4}
+.workflow .eyebrow{color:#3f6b58}.workflow .section-heading h2{color:#0f2e25}.workflow .section-heading>p{color:#3f5a4b}
+.workflow-line:before{background:linear-gradient(90deg,#0f2e25,#bcd6c8)}
+.step-circle{background:#0f2e25;border-color:#0f2e25;color:#5fe0b0;box-shadow:0 0 0 9px #f3f7f4}
+.workflow-line article h3{color:#0f2e25}
+.workflow-line article p{color:#3f5a4b;font-size:15px;line-height:1.7}
+.step-detail{display:inline-block;font-size:11px;letter-spacing:1px;color:#2c5a47;border:1px solid #c5d9cd;border-radius:999px;padding:6px 11px}
+.feature-tabs{background:#102e25}
+.demo-screen{background:radial-gradient(ellipse at 100% 0,#2a6a52 0,transparent 60%),#122f26;border-color:#315246;color:#eef5ef}
+.demo-screen .screen-subtitle,.demo-screen small{color:#b3cdbf}
+.demo-screen .screen-title h3{color:#f2f7f2}
+.finance-table td{font-size:12px;color:#e6efe8}.finance-table th{font-size:10px;color:#a9c4b5}.finance-stats small{font-size:10px}
+.finance-stats{border-color:#315246}.finance-table td,.finance-table th{border-color:#25483c}
+.finance-table td:last-child{color:#7fe3b8}
+.workflow-line{isolation:isolate}
+
+/* Блок доверия */
+.trust{padding:72px 0 80px;background:#fff;border-top:1px solid var(--line)}
+.trust-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:56px;align-items:stretch}
+.trust-stats{display:grid;grid-template-columns:repeat(3,1fr);align-content:center}
+.stat{padding:6px 28px 6px 0;margin-right:28px;border-right:1px solid #d5e3da}
+.stat:last-child{border-right:0;margin-right:0}
+.stat strong{display:block;font-size:clamp(46px,4.6vw,72px);line-height:1;font-weight:600;letter-spacing:-3px;color:#0f2e25}
+.stat span{display:block;margin-top:14px;font-size:15px;line-height:1.5;color:#3f5a4b;max-width:200px}
+.trust-quote{margin:0;padding:34px 36px;border-radius:20px;background:radial-gradient(ellipse at 90% 0,#1d6a5299,transparent 65%),#0f2e25;border:1px solid #2a5d4e;color:#f2f7f2;display:flex;flex-direction:column;justify-content:space-between;gap:28px}
+.trust-quote blockquote{margin:0;position:relative}
+.trust-quote blockquote:before{content:"“";position:absolute;left:-4px;top:-34px;font-size:90px;line-height:1;color:#5fe0b0;opacity:.5}
+.trust-quote p{margin:0;font-size:21px;line-height:1.55;letter-spacing:-.2px}
+.trust-quote figcaption{display:flex;align-items:center;gap:14px}
+.quote-mark{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#16483a;border:1px solid #2f6f5a;color:#9fe6c8;font-weight:600}
+.trust-quote b{display:block;font-size:16px;font-weight:600}
+.trust-quote small{display:block;margin-top:2px;font-size:14px;color:#a6c9b8}
+/* заглушки: видны, пока не подставлены реальные данные */
+.is-placeholder{outline:2px dashed #e0a23a;outline-offset:6px}
+@media(max-width:1000px){.trust-grid{grid-template-columns:1fr;gap:40px}.stat span{max-width:none}}
+@media(max-width:640px){.trust{padding:52px 0 56px}.trust-stats{grid-template-columns:1fr;gap:26px}.stat{border-right:0;border-bottom:1px solid #d5e3da;margin:0;padding:0 0 22px;display:flex;align-items:baseline;gap:18px}.stat:last-child{border-bottom:0;padding-bottom:0}.stat strong{font-size:48px;min-width:96px}.stat span{margin:0;font-size:15px}.trust-quote{padding:26px 22px}.trust-quote p{font-size:18px}}
+.trust-quote blockquote{padding-top:38px}.trust-quote blockquote:before{top:-12px;left:-2px;font-size:84px}
+.stat{align-items:baseline}
+
+/* Под ваш клуб */
+.clubs{background:#f3f7f4}
+.clubs .eyebrow{color:#3f6b58}.clubs-grid h2{color:#0f2e25}
+.clubs-grid>div>p{color:#3f5a4b;font-size:17px;line-height:1.7;max-width:420px}
+.customization{background:radial-gradient(ellipse at 85% 0,#1d6a5299,transparent 62%),#0f2e25;border:1px solid #2a5d4e;border-radius:22px;padding:28px;box-shadow:0 30px 60px -30px #0a2a1f88}
+.customize-head{color:#8fd9bb;font-size:12px}.customize-head>span:last-child{color:#c6ddd0}
+.color-picker>span{color:#c6ddd0;font-size:14px}
+.swatch{border-color:#0f2e25;width:24px;height:24px}.swatch.selected{outline:2px solid #fff;outline-offset:2px}
+.customization .customization-note{color:#a6c9b8;font-size:13px}
+/* FAQ */
+.faq-section{background:#fff}
+.faq-section .eyebrow{color:#3f6b58}.faq-grid h2{color:#0f2e25}
+.faq-list details{border-bottom-color:#d5e3da}
+.faq-list summary{font-size:19px;font-weight:550;color:#0f2e25;padding:26px 0;transition:color .2s}
+.faq-list summary:hover{color:#0a7b5c}
+.faq-list summary span{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:50%;border:1px solid #c5d9cd;font-size:22px;color:#0a7b5c;transition:transform .2s,background .2s,color .2s}
+.faq-list details[open] summary span{background:#0f2e25;border-color:#0f2e25;color:#5fe0b0}
+.faq-list details p{font-size:16px;line-height:1.7;color:#3f5a4b;padding:0 60px 28px 0;max-width:680px}
+/* Финальный блок и футер — парные к hero */
+.contact-section{background:radial-gradient(ellipse 60% 80% at 50% 0,#145340 0,transparent 70%),linear-gradient(160deg,#0c2b22,#071a14);border-color:#1f4d3f}
+.contact-orbit{border-color:#2a5d4e55;box-shadow:0 0 0 100px #ffffff05,0 0 0 101px #2a5d4e33}
+.contact-inner .eyebrow{color:#8fd9bb}.contact-inner h2{color:#fff}.contact-inner h2>span{color:#5fe0b0}
+.contact-inner>p{color:#c6ddd0;font-size:19px;line-height:1.65}
+.contact-section .button-green{background:#0a9a72;box-shadow:0 12px 28px -12px #0a9a72aa}.contact-section .button-green:hover{background:#0cae82}
+.contact-subline{color:#a6c9b8;font-size:14px}
+footer{background:#071a14;border-top:1px solid #1f4d3f}
+footer .brand{color:#fff}footer .brand .green{color:#4fd1a1}
+.footer-inner>span,.footer-inner>a:last-child{color:#a6c9b8;font-size:14px}.footer-inner>a:last-child:hover{color:#fff}
+@media(max-width:640px){.faq-list summary{font-size:17px;padding:22px 0}.faq-list details p{font-size:15px;padding-right:0}.clubs-grid>div>p{font-size:16px}.customization{padding:22px}}
+@media(max-width:640px){.contact-inner>p br{display:none}}
+.trust[hidden]{display:none}

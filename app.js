@@ -36,11 +36,42 @@ $$('[data-video]').forEach(button => button.addEventListener('click', () => {
   openDialog(videoDialog);
   $('video', videoDialog).play().catch(() => {});
 }));
-$('#contact-open').addEventListener('click', () => openDialog(contactDialog));
 $$('dialog').forEach(dialog => {
   $('.dialog-close', dialog)?.addEventListener('click', () => dialog.close());
   dialog.addEventListener('click', event => { if (event.target === dialog) { const r = dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dialog.close(); } });
   dialog.addEventListener('close', () => { document.body.style.overflow = ''; if (dialog === videoDialog) $('video', dialog).pause(); lastFocus?.focus(); });
+});
+const FORM_ENDPOINT = ''; // адрес приёма заявок (Formspree и т.п.); пока пусто — показываем запасной вариант
+const form = $('#contact-form');
+const formStatus = $('#form-status');
+function showContactState(state) {
+  form.hidden = state !== 'form';
+  $('#form-done').hidden = state !== 'done';
+  $('#form-fallback').hidden = state !== 'fallback';
+  $$('#contact-dialog > p, #contact-dialog > h2, #contact-dialog > .eyebrow').forEach(el => el.hidden = state === 'done');
+}
+$$('[data-contact]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); showContactState('form'); openDialog(contactDialog); }));
+$('#contact-open').addEventListener('click', () => { showContactState('form'); openDialog(contactDialog); });
+$$('[data-close-dialog]').forEach(b => b.addEventListener('click', () => contactDialog.close()));
+function inquiryText(d) {
+  return `Здравствуйте! Хочу посмотреть OneTable для клуба «${d.club}»${d.city ? ' (' + d.city + ')' : ''}. Связаться: ${d.contact}.${d.message ? ' ' + d.message : ''}`;
+}
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(form));
+  formStatus.textContent = '';
+  if (!data.club.trim() || !data.contact.trim()) { formStatus.textContent = 'Укажите название клуба и контакт для связи.'; (data.club.trim() ? form.contact : form.club).focus(); return; }
+  if (data.website) return;
+  $('#inquiry-text').textContent = inquiryText(data);
+  if (!FORM_ENDPOINT) { showContactState('fallback'); return; }
+  const submit = $('button[type=submit]', form);
+  submit.disabled = true; $('.submit-label', form).textContent = 'Отправляем…';
+  try {
+    const r = await fetch(FORM_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ club: data.club, city: data.city, contact: data.contact, message: data.message }) });
+    if (!r.ok) throw new Error(r.status);
+    form.reset(); showContactState('done');
+  } catch { showContactState('fallback'); }
+  finally { submit.disabled = false; $('.submit-label', form).textContent = 'Отправить заявку'; }
 });
 $('#copy-inquiry').addEventListener('click', async () => {
   const value = $('#inquiry-text').textContent;
