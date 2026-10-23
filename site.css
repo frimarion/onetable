@@ -664,9 +664,6 @@ body {
   .video-heading>p {
     font-size: 15px;
   }
-  .footer-inner>span:first-of-type {
-    display: none;
-  }
 }
 
 @media (max-width:640px) {
