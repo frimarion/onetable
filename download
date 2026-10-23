@@ -1,0 +1,22 @@
+# Local dependencies and build caches
+node_modules/
+.cache/
+.sites-runtime/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local logs and temporary artifacts
+*.log
+*.tmp
+*.tar.gz
