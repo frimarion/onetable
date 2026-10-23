@@ -185,30 +185,6 @@ footer .brand{color:#fff}footer .brand .green{color:#4fd1a1}
 .role-preview-floor.actual-role-preview .screen-zoom{background:#08080c}
 @media(min-width:1180px){.roles-section .role-preview{height:232px!important}.roles-section .role-preview-floor.actual-role-preview{padding-top:36px!important}}
 
-/* Один игровой день: карточки шагов с реальными экранами */
-.day-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px;margin-top:48px}
-.day-card{position:relative;display:flex;flex-direction:column;background:#0f2e25;border:1px solid #2a5d4e;border-radius:18px;overflow:visible;box-shadow:0 24px 50px -32px #0a2a1f99;transition:transform .2s,border-color .2s}
-.day-card:hover{transform:translateY(-3px);border-color:#4f9a80}
-.day-visual{position:relative;height:170px;border-radius:17px 17px 0 0;overflow:hidden;background:#08080c;border-bottom:1px solid #2a5d4e}
-.day-visual img{display:block;width:100%;height:100%;object-fit:cover}
-.day-visual .vis-player{object-position:50% 52%}.day-visual .vis-admin{object-position:0 0}.day-visual .vis-display{object-position:50% 38%}
-.day-visual:after{content:"";position:absolute;inset:auto 0 0;height:40px;background:linear-gradient(transparent,#0f2e25aa);pointer-events:none}
-.day-num{position:absolute;left:14px;top:14px;z-index:2;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#0a231b;border:1px solid #3d7a66;color:#5fe0b0;font-size:13px;font-weight:600}
-.vis-report{height:100%;padding:52px 20px 18px;background:radial-gradient(ellipse at 90% 0,#1d6a5299,transparent 65%),#0b211a;color:#f0f7ed;display:flex;flex-direction:column}
-.vis-report small{font-size:10px;letter-spacing:1px;color:#a8c2b0}.vis-report strong{font-size:34px;font-weight:600;letter-spacing:-1px;line-height:1.1;margin-top:4px}.vis-report strong span{font-size:22px;font-weight:400}
-.vis-bars{display:flex;align-items:flex-end;gap:9px;height:100%;margin-top:10px;border-bottom:1px solid #2a5d4e}.vis-bars i{flex:1;height:var(--h);background:#77ba90;border-radius:3px 3px 0 0}.vis-bars i:nth-child(even){background:#417957}
-.day-body{display:flex;flex-direction:column;gap:12px;padding:20px 22px 24px;flex:1}
-.day-who{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#8fd9bb}.day-who svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.day-body h3{margin:0;font-size:24px;line-height:1.2;letter-spacing:-.5px;color:#f2f7f2}
-.day-body p{margin:0;font-size:15px;line-height:1.6;color:#c7d8cc}
-.day-pill{margin-top:auto;align-self:flex-start;font-size:11px;letter-spacing:1px;color:#9fe6c8;border:1px solid #2f6f5a;border-radius:999px;padding:7px 12px;background:#16483a66}
-/* стрелки-соединители между карточками */
-@media(min-width:1100px){.day-card:not(:last-child):after{content:"→";position:absolute;right:-25px;top:150px;z-index:3;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#0a9a72;color:#fff;font-size:15px;box-shadow:0 0 0 5px #f3f7f4}}
-@media(max-width:1099px){.day-steps{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:34px}.day-visual{height:190px}}
-@media(max-width:640px){.day-steps{grid-template-columns:1fr;gap:18px}.day-visual{height:180px}.day-body h3{font-size:22px}}
-.day-visual .vis-player{object-position:50% 40%}
-.day-visual .vis-player{width:300px;max-width:100%;margin:0 auto;object-position:50% 40%}
-.day-visual:has(.vis-player){background:linear-gradient(135deg,#0a2518,#1b3c29)}
 
 /* Персонажи ролей: «стикер» на нижнем краю превью */
 .roles-section .role-card{position:relative}
