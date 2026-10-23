@@ -945,8 +945,9 @@ a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var
 .finance-table td:last-child{color:var(--glow)}
 /* Игрок */
 .player-section{background:var(--surface-soft)}
-.player-section .player-art.real-player-art{background:var(--dark);border-color:var(--dark-line);border-radius:var(--radius-island);box-shadow:0 30px 70px -20px #0b0f0d47}
-.player-section .real-screen-caption{color:var(--dark-ink-2)}
+/* телефон прямо на светлой странице, как в героe — без тёмной подложки */
+.player-section .player-art.real-player-art{background:none;border:0;box-shadow:none}
+.player-section .real-screen-caption{color:var(--ink-2)}
 .player-copy p{color:var(--ink-2)}
 .check-list li{color:var(--ink)}
 .check-list li:before{background:var(--dark);color:var(--glow)}
@@ -1078,13 +1079,23 @@ footer .brand .green{color:var(--accent)}
 .mac-base{position:relative;width:112%;margin-left:-6%;height:clamp(10px,2.4vw,16px);background:#D7D8DD;border-radius:2px 2px 14px 14px;border-top:1px solid #EDEDF0;box-shadow:inset 0 -2px 0 #BFC0C6}
 .mac-base:before{content:"";position:absolute;left:50%;top:0;width:16%;height:40%;transform:translateX(-50%);background:#C3C4CA;border-radius:0 0 8px 8px}
 .mac .zoom-hint{font-size:11px;padding:7px 10px;bottom:10px;right:10px}
-.hero-phone{position:absolute;right:0;bottom:0;width:27%;max-width:170px;aspect-ratio:390/844;border:4px solid #0b241b;border-radius:24px;overflow:hidden;background:#0b241b;transform:rotate(3deg);box-shadow:0 0 0 2px #3a7a66,0 24px 40px #0b0f0d59;z-index:3}
-.hero-phone .screen-zoom{height:100%;border-radius:20px}
-.hero-phone img{width:100%;height:100%;object-fit:cover;object-position:top}
+.hero-phone{position:absolute;right:0;bottom:0;width:27%;max-width:175px;z-index:3}
 @media (max-width:640px){
 .hero-devices{max-width:none;margin:28px 0 0;padding:0 8% 20px 0}
 .mac-screen{border-radius:12px 12px 3px 3px}
-.hero-phone{border-width:3px;border-radius:16px}
-.hero-phone .screen-zoom{border-radius:13px}
 .mac .zoom-hint{display:none}
 }
+/* iPhone-мокап: общий для героя и блока «Опыт игрока» */
+.iphone{position:relative;box-sizing:border-box;padding:3.4%;background:#1D1D1F;border:0;border-radius:15.5%/7.2%;box-shadow:inset 0 0 0 1.5px #4A4A4F,inset 0 0 0 3px #111,0 24px 44px -6px #0b0f0d59;overflow:visible}
+.iphone:before,.iphone:after{content:"";position:absolute;width:2.2%;background:#2C2C2E;border-radius:2px}
+.iphone:before{right:-1.6%;top:24%;height:11%}
+.iphone:after{left:-1.6%;top:19%;height:17%;background:linear-gradient(#2C2C2E 0 42%,transparent 42% 58%,#2C2C2E 58%)}
+.iphone-screen{position:relative;overflow:hidden;border-radius:12.5%/5.8%;background:#0B1A13;aspect-ratio:390/900;padding-top:12%}
+.iphone-screen .screen-zoom{border-radius:0;height:100%;background:transparent}
+.iphone-screen img{width:100%;height:100%;object-fit:cover;object-position:top}
+.iphone-island{position:absolute;left:50%;top:2.2%;width:31%;height:3.6%;transform:translateX(-50%);background:#000;border-radius:999px;z-index:2}
+.iphone-status{position:absolute;inset:2.9% 10% auto 11%;display:flex;justify-content:space-between;align-items:center;z-index:2;color:#fff;font:600 clamp(6px,1.1vw,11px)/1 var(--font)}
+.iphone-status i{width:9%;aspect-ratio:2.1;border:1px solid #ffffffb3;border-radius:3px;background:linear-gradient(90deg,#fff 70%,transparent 70%) content-box;padding:1px}
+.hero-phone.iphone{position:absolute;transform:rotate(3deg)}
+.player-section .real-player-frame.iphone{transform:rotate(-2deg)}
+.iphone .zoom-hint{bottom:5%;right:6%}
