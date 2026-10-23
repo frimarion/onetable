@@ -249,35 +249,41 @@ $$('.admin-mock').forEach(mock => {
   el('reset').addEventListener('click', () => { level = 0; left = LEN; if (onBreak) setBreak(false); setFinal(false); setPaused(false); render(true); });
 })();
 
-// 3. Вечер как лог системы: при появлении блока часы бегут, шаги загораются по очереди
+// 3. Игровой вечер: шаги слева, экран продукта справа; шаги сменяются сами, пока блок на экране
 (() => {
-  const tl = $('.day-timeline');
-  if (!tl || reduceMotion) return;
-  const items = $$('.tl-list li', tl);
-  const clock = $('#tl-clock');
-  const toMin = t => { const [h, m] = t.split(':').map(Number); return (h < 6 ? h + 24 : h) * 60 + m; };
-  const times = items.map(li => toMin($('time', li).textContent));
-  const show = m => { m = Math.round(m) % 1440; clock.textContent = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
-  tl.classList.add('tl-anim');
-  items.forEach(li => li.classList.remove('is-live'));
-  show(times[0]);
-  whenVisible(tl, () => {
-    let i = 0;
-    const reach = () => {
-      const li = items[i];
-      items.forEach(x => x.classList.remove('is-live'));
-      li.classList.add('reached', 'is-live');
-      $$('[data-count]', li).forEach(n => countUp(n, 900));
-      if (i === items.length - 1) return;
-      setTimeout(() => {
-        li.classList.add('passed');
-        const from = times[i], to = times[i + 1], t0 = performance.now();
-        const run = t => { const k = Math.min(1, (t - t0) / 900); show(from + (to - from) * k); if (k < 1) requestAnimationFrame(run); else { i++; reach(); } };
-        requestAnimationFrame(run);
-      }, 700);
-    };
-    reach();
-  }, { threshold: 0.45 });
+  const root = $('.wf');
+  if (!root) return;
+  const steps = $$('.wf-step', root), panels = $$('.wf-panel', root), clock = $('#wf-clock');
+  let cur = 0;
+  function show(i, focus) {
+    cur = (i + steps.length) % steps.length;
+    steps.forEach((s, k) => {
+      const on = k === cur;
+      s.classList.toggle('on', on);
+      s.setAttribute('aria-selected', String(on));
+      s.tabIndex = on ? 0 : -1;
+      panels[k].hidden = !on;
+    });
+    clock.textContent = steps[cur].dataset.time;
+    $$('[data-count]', panels[cur]).forEach(n => countUp(n, 900));
+    if (focus) steps[cur].focus();
+  }
+  steps.forEach((s, k) => {
+    s.addEventListener('click', () => show(k));
+    s.addEventListener('keydown', e => {
+      const move = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+      if (move) { e.preventDefault(); show(k + move, true); }
+    });
+  });
+  if (reduceMotion) return;
+  // полоса под активным шагом заполняется за 6 секунд, по её окончании включается следующий шаг
+  root.addEventListener('animationend', e => { if (e.animationName === 'wf-fill') show(cur + 1); });
+  whenVisible(root, v => root.classList.toggle('is-run', v), { once: false, threshold: 0.4 });
+  const hold = on => root.classList.toggle('is-hold', on);
+  root.addEventListener('pointerenter', () => hold(true));
+  root.addEventListener('pointerleave', () => hold(false));
+  root.addEventListener('focusin', () => hold(true));
+  root.addEventListener('focusout', () => hold(false));
 })();
 
 // 4. Микро-детали: метки печатаются, блоки проявляются, цифры отчёта досчитываются
