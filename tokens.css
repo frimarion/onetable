@@ -29,3 +29,23 @@
 .tl-list li.is-live:before{background:var(--dark-line)}
 .tl-list li:after{top:0}.tl-list time{font-size:24px}.tl-list li:first-child{margin-top:24px}}
 @media(max-width:640px){.day-timeline{margin-top:32px;padding:24px 20px 26px;border-radius:24px}}
+/* Финал страницы: светлый фон, тёмные только острова (видео, контакты) */
+.video-section{background:var(--page);color:var(--ink);padding:24px 0 96px}
+.video-heading .eyebrow{color:var(--accent)}.video-heading h2{color:var(--ink)}.video-heading>p{color:var(--ink-2)}
+.video-preview{background:var(--dark);border:0;box-shadow:0 30px 70px -20px #0b0f0d47}
+.theme-preview{--club-color:#0B7A55}
+.contact-section{background:var(--page);border:0;padding:0 0 96px}
+.contact-inner{background:var(--dark);color:var(--dark-ink);border-radius:var(--radius-island);padding:88px 34px;box-shadow:0 30px 70px -20px #0b0f0d47}
+.contact-inner h2{color:var(--dark-ink)}
+footer{background:var(--page);border-top:1px solid var(--line)}
+footer .brand{color:var(--ink)}footer .brand .green{color:var(--accent)}
+.footer-inner>span,.footer-inner>a:last-child{color:var(--ink-2)}.footer-inner>a:last-child:hover{color:var(--ink)}
+@media(max-width:640px){.video-section{padding:16px 0 64px}.video-preview{border-radius:24px}.contact-section{padding-bottom:64px}.contact-inner{padding:56px 22px;border-radius:24px}}
+/* Превью бренда: акценты следуют цвету клуба, без «казино-золота» */
+.theme-preview{background:var(--dark-card);color:var(--dark-ink);border-color:var(--dark-line);box-shadow:none}
+.preview-mark{color:#fff}
+.preview-tournament{border-color:var(--dark-line)}
+.preview-tournament>span,.preview-tournament p{color:var(--dark-ink-2)}
+.preview-tournament h3{color:var(--dark-ink)}
+.preview-register{background:var(--club-color);color:#fff;transition:background-color .3s}
+.video-preview>img{object-position:50% 80%}
