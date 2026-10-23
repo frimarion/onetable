@@ -2691,3 +2691,235 @@ footer .brand .green {
     height: 100px;
   }
 }
+
+/* Герой: панель администратора OneTable, свёрстанная внутри экрана Mac.
+   Все размеры в em; 1em = 1% ширины экрана, поэтому панель масштабируется вместе с Mac. */
+.mac-screen {
+  container-type: inline-size;
+}
+.admin-mock {
+  font-size: 1cqw;
+  display: flex;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--dark);
+  color: var(--dark-ink);
+  font-family: var(--font);
+  line-height: 1.25;
+}
+.am-side {
+  flex: none;
+  width: 19em;
+  padding: 2.6em 1.6em;
+  background: #0E1411;
+  border-right: 1px solid var(--dark-line);
+}
+.am-logo {
+  display: flex;
+  align-items: center;
+  gap: .6em;
+  margin: 0 0 2.6em .4em;
+  font-size: 2em;
+  font-weight: 700;
+  letter-spacing: -.03em;
+}
+.am-logo img {
+  width: 1.6em;
+}
+.am-logo b {
+  font-weight: 700;
+}
+.am-logo span {
+  color: var(--glow);
+}
+.am-side ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .35em;
+}
+.am-side li {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  padding: .85em 1em;
+  border-radius: .8em;
+  font-size: 1.25em;
+  color: var(--dark-ink-2);
+}
+.am-side li svg,
+.am-side li i {
+  width: 1.2em;
+  height: 1.2em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.am-side li i {
+  width: .5em;
+  height: .5em;
+  margin: 0 .35em;
+  border-radius: 50%;
+  background: var(--dark-line);
+}
+.am-side li.on {
+  background: var(--dark-card);
+  color: var(--dark-ink);
+}
+.am-side li.on svg {
+  color: var(--glow);
+}
+.am-main {
+  flex: 1;
+  min-width: 0;
+  padding: 2.4em 2.6em;
+  display: flex;
+  flex-direction: column;
+  gap: 1.6em;
+}
+.am-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.3em;
+  color: var(--dark-ink-2);
+}
+.am-live {
+  display: flex;
+  align-items: center;
+  gap: .6em;
+}
+.am-live i {
+  width: .6em;
+  height: .6em;
+  border-radius: 50%;
+  background: var(--glow);
+}
+.am-count b {
+  color: var(--dark-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.am-tools {
+  display: flex;
+  gap: 1em;
+  font-size: 1.25em;
+}
+.am-add {
+  padding: .8em 1.2em;
+  border-radius: .7em;
+  background: var(--glow);
+  color: var(--dark);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.am-search {
+  flex: 1;
+  padding: .8em 1.2em;
+  border-radius: .7em;
+  border: 1px solid var(--dark-line);
+  color: #5d6a63;
+}
+.am-table {
+  flex: 1;
+  border: 1px solid var(--dark-line);
+  border-radius: 1em;
+  overflow: hidden;
+  background: #0E1411;
+}
+.am-row {
+  display: grid;
+  grid-template-columns: 4% 28% 18% 14% 26% 10%;
+  align-items: center;
+  padding: .9em 1.4em;
+  border-top: 1px solid var(--dark-line);
+  font-size: 1.2em;
+}
+.am-head {
+  border-top: 0;
+  font-size: 1em;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--dark-ink-2);
+}
+.am-row > span:first-child {
+  color: #5d6a63;
+}
+.am-player {
+  display: flex;
+  align-items: center;
+  gap: .7em;
+  font-weight: 500;
+}
+.am-player b {
+  display: grid;
+  place-items: center;
+  width: 1.9em;
+  height: 1.9em;
+  border-radius: 50%;
+  background: var(--dark-card);
+  border: 1px solid #2a3a32;
+  color: var(--glow);
+  font-size: .85em;
+}
+.am-check {
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: .3em;
+  border: 1.5px solid #3a4a42;
+}
+.am-check.on {
+  background: var(--glow);
+  border-color: var(--glow);
+  box-shadow: inset 0 0 0 .28em var(--glow);
+  position: relative;
+}
+.am-check.on::after {
+  content: "";
+  position: absolute;
+  left: .38em;
+  top: .12em;
+  width: .35em;
+  height: .7em;
+  border: solid var(--dark);
+  border-width: 0 .16em .16em 0;
+  transform: rotate(45deg);
+}
+.am-re {
+  display: flex;
+  align-items: center;
+  gap: .5em;
+}
+.am-re em {
+  font-style: normal;
+  padding: .3em .65em;
+  border-radius: .5em;
+  background: var(--dark-card);
+  border: 1px solid var(--dark-line);
+  font-size: .9em;
+}
+.am-re small {
+  color: var(--glow);
+  font-size: .9em;
+}
+.am-status {
+  justify-self: start;
+  padding: .3em .75em;
+  border-radius: 99em;
+  background: #2bd98a1f;
+  color: var(--glow);
+  font-size: .9em;
+  font-weight: 600;
+}
+.am-status.out {
+  background: #ff6b5c1f;
+  color: #ff8a7d;
+}
+.am-status.wait {
+  background: var(--dark-card);
+  color: var(--dark-ink-2);
+}
