@@ -2923,3 +2923,10 @@ footer .brand .green {
   background: var(--dark-card);
   color: var(--dark-ink-2);
 }
+
+/* Вкладка «Администратор»: та же панель OneTable, что на Mac в первом блоке */
+.role-screen-mock {
+  container-type: inline-size;
+  aspect-ratio: auto;
+  border: 1px solid var(--dark-line);
+}
