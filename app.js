@@ -171,17 +171,25 @@ $$('.admin-mock').forEach(mock => {
   if (!mock) return;
   const levels = [[100, 200], [150, 300], [200, 400], [300, 600], [400, 800], [500, 1000], [600, 1200], [700, 1400], [800, 1600], [1000, 2000], [1200, 2400], [1500, 3000], [2000, 4000], [2500, 5000], [3000, 6000], [4000, 8000]];
   const LEN = 20 * 60, CHIPS = 3280000;
-  let level = 8, left = 12, players = 52, paused = false, visible = false, ticks = 0;
+  let level = 8, left = 12, players = 52, paused = false, onBreak = false, finalTable = false, visible = false, ticks = 0;
   const el = id => $('#tm-' + id);
   const blinds = l => `${fmt(levels[l][0])} / ${fmt(levels[l][1])}`;
   function render(levelChanged) {
     el('level').textContent = level + 1;
     el('blinds').textContent = blinds(level);
-    el('ante').textContent = `BB ANTE ${fmt(levels[level][1])}`;
+    el('ante').textContent = onBreak ? 'ПЕРЕРЫВ' : `BB ANTE ${fmt(levels[level][1])}`;
     el('next').textContent = levels[level + 1] ? blinds(level + 1) : '—';
     el('clock').textContent = mmss(left);
-    const rmClock = $('#rm-clock');
-    if (rmClock) { rmClock.textContent = mmss(left); $('#rm-level').textContent = level + 1; }
+    const rm = id => $('#rm-' + id);
+    if (rm('clock')) {
+      rm('clock').textContent = mmss(left);
+      rm('level').textContent = level + 1;
+      rm('bar').style.transform = `scaleX(${(LEN - left) / LEN})`;
+      rm('blinds').textContent = blinds(level);
+      rm('ante').textContent = `анте ${fmt(levels[level][1])}`;
+      rm('next').textContent = levels[level + 1] ? blinds(level + 1) : '—';
+      rm('state').textContent = onBreak ? 'Перерыв' : paused ? 'Пауза' : 'Идёт';
+    }
     el('bar').style.transform = `scaleX(${(LEN - left) / LEN})`;
     const breakLevel = Math.ceil((level + 1) / 5) * 5; // перерыв после каждого 5-го уровня
     const breakIn = Math.floor((left + (breakLevel - level - 1) * LEN) / 60);
@@ -205,14 +213,40 @@ $$('.admin-mock').forEach(mock => {
     if (++ticks % 9 === 0 && players > 40) players--; // кто-то вылетел
     render();
   }, 1000);
-  const toggle = el('toggle');
-  toggle.addEventListener('click', () => {
-    paused = !paused;
-    mock.classList.toggle('paused', paused);
-    toggle.setAttribute('aria-pressed', String(paused));
-    toggle.innerHTML = paused ? '▶ <span>Старт</span>' : '❚❚ <span>Пауза</span>';
-  });
-  el('skip').addEventListener('click', nextLevel);
+  const toggle = el('toggle'), breakBtn = el('breakbtn'), finalBtn = el('final');
+  const icon = (d, st) => `<svg viewBox="0 0 24 24" aria-hidden="true"${st ? ' class="st"' : ''}>${d}</svg>`;
+  const PLAY = icon('<path d="M6 3.5v17a1 1 0 0 0 1.5.86l14-8.5a1 1 0 0 0 0-1.72l-14-8.5A1 1 0 0 0 6 3.5z"/>');
+  const PAUSE = icon('<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>');
+  function setPaused(p) {
+    paused = p;
+    mock.classList.toggle('paused', p);
+    $('#remote').classList.toggle('is-paused', p);
+    toggle.setAttribute('aria-pressed', String(p));
+    toggle.innerHTML = p ? PLAY + ' <span>Продолжить</span>' : PAUSE + ' <span>Пауза</span>';
+    render();
+  }
+  function setBreak(b) {
+    onBreak = b;
+    breakBtn.setAttribute('aria-pressed', String(b));
+    $('span', breakBtn).textContent = b ? 'Финиш брейка' : 'Перерыв';
+    setPaused(b);
+  }
+  function setFinal(f) {
+    finalTable = f;
+    finalBtn.classList.toggle('on', f);
+    finalBtn.setAttribute('aria-pressed', String(f));
+    $('.tm-name', mock).textContent = f ? 'Финальный стол' : 'Friday Deep Stack';
+    $('#rm-name').textContent = f ? 'Финальный стол' : 'Friday Deep Stack';
+  }
+  toggle.addEventListener('click', () => { if (onBreak) setBreak(false); else setPaused(!paused); });
+  el('start').addEventListener('click', () => { if (onBreak) setBreak(false); else setPaused(false); });
+  el('skip').addEventListener('click', () => { if (onBreak) setBreak(false); nextLevel(); });
+  el('prev').addEventListener('click', () => { level = (level + levels.length - 1) % levels.length; left = LEN; render(true); });
+  el('minus').addEventListener('click', () => { left = Math.max(0, left - 60); render(); });
+  el('plus').addEventListener('click', () => { left = Math.min(LEN, left + 60); render(); });
+  breakBtn.addEventListener('click', () => setBreak(!onBreak));
+  finalBtn.addEventListener('click', () => setFinal(!finalTable));
+  el('reset').addEventListener('click', () => { level = 0; left = LEN; if (onBreak) setBreak(false); setFinal(false); setPaused(false); render(true); });
 })();
 
 // 3. Вечер как лог системы: при появлении блока часы бегут, шаги загораются по очереди
