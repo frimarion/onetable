@@ -152,3 +152,29 @@ footer .brand{color:#fff}footer .brand .green{color:#4fd1a1}
 @media(max-width:640px){.faq-list summary{font-size:17px;padding:22px 0}.faq-list details p{font-size:15px;padding-right:0}.clubs-grid>div>p{font-size:16px}.customization{padding:22px}}
 @media(max-width:640px){.contact-inner>p br{display:none}}
 .trust[hidden]{display:none}
+
+/* Роли: четыре карточки в один ряд, чтобы видна была многофункциональность */
+@media(min-width:1180px){
+.roles-section{padding-top:72px;padding-bottom:80px}
+.roles-section .section-heading{margin-bottom:30px}
+.roles-section .role-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.roles-section .role-card{padding:12px 12px 22px;border-radius:16px}
+.roles-section .role-preview{height:200px!important;padding:40px 14px 14px;margin-bottom:18px}
+.roles-section .preview-kicker{left:14px;top:14px;font-size:9px;letter-spacing:1.1px}
+.roles-section .role-card>.role-label{margin:0 6px;font-size:11px}
+.roles-section .role-card>h3{font-size:21px;line-height:1.2;margin:10px 6px 10px}
+.roles-section .role-card>p{font-size:14px;line-height:1.55;margin:0 6px 18px}
+.roles-section .role-tools{margin:auto 6px 0;padding-top:14px;font-size:9px;letter-spacing:.5px}
+/* настоящие экраны: админка целиком, телефон — верхняя часть с плавным краем */
+.roles-section .role-preview-admin.actual-role-preview{padding:34px 0 0!important}
+.roles-section .role-preview-admin.actual-role-preview img{width:100%;height:auto;transform:none;object-fit:initial}
+.roles-section .role-preview-player.actual-role-preview img{width:150px;transform:none}
+/* макеты экранов флора и владельца */
+.roles-section .role-timer{font-size:46px;margin:12px 0 10px}
+.roles-section .role-blinds{margin-top:12px}.roles-section .role-blinds b{font-size:15px;margin-top:5px}.roles-section .role-blinds>span{font-size:9px}
+.roles-section .role-preview-top{font-size:11px}.roles-section .role-preview-top>span{font-size:8px}
+.roles-section .role-owner-count{margin-top:10px}.roles-section .role-owner-count strong{font-size:30px}.roles-section .role-owner-count>small{font-size:11px}
+.roles-section .role-bars{height:36px;margin-top:8px;gap:8px}.roles-section .role-owner-bottom{margin-top:8px;font-size:10px}
+/* подсказка «Открыть экран» — только при наведении, чтобы не закрывать макет */
+.roles-section .zoom-hint{opacity:0;transition:opacity .2s}.roles-section .screen-zoom:hover .zoom-hint,.roles-section .screen-zoom:focus-visible .zoom-hint{opacity:1}
+}
