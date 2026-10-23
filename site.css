@@ -2528,9 +2528,11 @@ footer .brand .green {
 .role-tab-persona {
   flex: none;
   align-self: flex-end;
-  width: 78px;
-  height: auto;
+  width: 76px;
+  height: 132px;
   margin-top: auto;
+  object-fit: contain;
+  object-position: center bottom;
 }
 .role-tab-body {
   display: flex;
@@ -2612,6 +2614,7 @@ footer .brand .green {
   }
   .role-tab-persona {
     width: 60px;
+    height: 112px;
   }
   .role-tab-body {
     padding-bottom: 14px;
