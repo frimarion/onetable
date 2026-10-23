@@ -209,3 +209,12 @@ footer .brand{color:#fff}footer .brand .green{color:#4fd1a1}
 .day-visual .vis-player{object-position:50% 40%}
 .day-visual .vis-player{width:300px;max-width:100%;margin:0 auto;object-position:50% 40%}
 .day-visual:has(.vis-player){background:linear-gradient(135deg,#0a2518,#1b3c29)}
+
+/* Персонажи ролей: «стикер» на нижнем краю превью */
+.roles-section .role-card{position:relative}
+.role-figure{position:absolute;z-index:4;right:16px;top:202px;height:130px;width:auto;pointer-events:none;filter:drop-shadow(0 10px 14px #00000066);transition:transform .25s}
+.role-card:hover .role-figure{transform:translateY(-4px) rotate(-1.5deg)}
+.roles-section .zoom-hint{right:auto!important;left:12px}
+@media(min-width:1180px){.role-figure{top:174px;height:125px;right:12px}}
+@media(max-width:640px){.role-figure{top:202px;height:120px;right:18px}}
+@media(min-width:1180px){.role-figure{top:150px;height:140px}}
