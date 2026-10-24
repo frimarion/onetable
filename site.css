@@ -3609,3 +3609,13 @@ footer .brand .green {
 @media (min-width:1100px) { .wf-stage { min-height: 540px; } }
 @media (max-width:640px) { .wf-bot { width: 92%; margin-top: -20px; } }
 @media (prefers-reduced-motion: reduce) { .wf-bot { animation: none; } }
+
+/* Block 02, «Флор» (>=1300px): like the admin MacBook, the TV and iPhone remote span the role cards —
+   the phone runs from the top of the first card to the bottom of the last, the TV stands on the same baseline */
+@media (min-width:1300px) {
+  #role-panel-floor .tv-wrap { height: 100%; padding-bottom: 0; display: flex; align-items: flex-end; container-type: size; }
+  /* phone width = its screen (9:19.2 of the height minus the 7px frame) + frame; the TV tucks 24px under it */
+  #role-panel-floor .tv { width: calc(100% - (100cqh - 14px) * 9 / 19.2 - 14px + 24px); }
+  #role-panel-floor .remote.iphone { top: 0; bottom: 0; width: auto; }
+  #role-panel-floor .remote .iphone-screen { height: 100%; width: auto; aspect-ratio: 9 / 19.2; }
+}
