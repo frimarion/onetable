@@ -3516,3 +3516,8 @@ footer .brand .green {
   .tv { width: 100%; }
   .remote.iphone { position: relative; right: auto; bottom: auto; width: clamp(160px, 50%, 200px); margin-top: 24px; }
 }
+
+/* Second line of section headings: brand green, like the hero and block 01 */
+.muted-heading {
+  color: var(--accent);
+}
