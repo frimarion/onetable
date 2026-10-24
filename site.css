@@ -3487,3 +3487,25 @@ footer .brand .green {
 @media (min-width:3200px) {
   .site-header, main, footer { zoom: 1.5; }
 }
+
+/* Floor TV: size the timer from the TV screen width (it used to fall back to the viewport,
+   leaving a narrow strip in the middle), fill the screen and centre it vertically */
+.tv-frame { container-type: inline-size; }
+.tv-frame .timer-mock {
+  container-type: normal;
+  align-content: center;
+  align-items: stretch;
+  gap: 3.5cqw;
+  padding: 4cqw 5cqw;
+}
+.tv-frame .tm-label { font-size: 1.5cqw; margin-top: 2.6cqw; }
+.tv-frame .tm-label:first-child { margin-top: 0; }
+.tv-frame .tm-name { font-size: 2.6cqw; line-height: 1.15; }
+.tv-frame .tm-big { font-size: 4.2cqw; }
+.tv-frame .tm-level { font-size: 2.6cqw; }
+.tv-frame .tm-blinds { font-size: 6.6cqw; }
+.tv-frame .tm-ante { font-size: 1.7cqw; }
+.tv-frame .tm-clock { margin-top: auto; font-size: 13cqw; }
+.tv-frame .tm-bar { height: .7cqw; }
+.tv-frame .tm-next { font-size: 1.5cqw; }
+.tv-frame .tm-col { justify-content: center; }
