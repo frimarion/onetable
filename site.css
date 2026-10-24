@@ -3636,3 +3636,30 @@ footer .brand .green {
   #role-panel-floor .remote.iphone { top: 0; bottom: 0; width: auto; }
   #role-panel-floor .remote .iphone-screen { height: 100%; width: auto; aspect-ratio: 9 / 19.2; }
 }
+
+/* Block 03, «Отмечаем пришедших»: a 10-max table with the seated players, the other two tables below */
+.wf-felt { position: relative; height: 236px; margin: 18px 0 4px; }
+.wf-felt-oval { position: absolute; inset: 12% 6%; display: grid; place-content: center; text-align: center; border-radius: 999px; background: #10251B; border: 6px solid var(--dark-line); box-shadow: inset 0 0 0 1px #ffffff0d, inset 0 10px 30px #0006; }
+.wf-felt-oval b { font-size: 16px; font-weight: 650; }
+.wf-felt-oval small { margin-top: 4px; font: 500 12px/1.3 var(--mono); letter-spacing: .06em; color: var(--dark-ink-2); }
+.wf-seat { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 3px; width: 70px; }
+.wf-seat img, .wf-seat i { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid var(--glow); background: var(--dark-card); }
+.wf-seat b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; text-shadow: 0 1px 2px #000; }
+.wf-seat.empty i { border: 1.5px dashed #ffffff33; }
+.wf-seat.empty b { font-weight: 400; color: var(--dark-ink-2); }
+.wf-minis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.wf-mini { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--dark-card); }
+.wf-mini b { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.wf-mini small { margin-left: auto; font: 500 12px/1 var(--mono); color: var(--dark-ink-2); white-space: nowrap; }
+.wf-mini-stack { display: flex; align-items: center; }
+.wf-mini-stack img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 2px solid var(--dark-card); margin-left: -8px; }
+.wf-mini-stack img:first-child { margin-left: 0; }
+.wf-mini-stack em { margin-left: 6px; font-style: normal; font-size: 12px; color: var(--dark-ink-2); }
+@media (max-width:640px) {
+  .wf-felt { height: 200px; }
+  .wf-seat { width: 64px; }
+  .wf-seat b { letter-spacing: -.02em; }
+  .wf-seat img, .wf-seat i { width: 30px; height: 30px; }
+  .wf-seat b { font-size: 10px; }
+  .wf-minis { grid-template-columns: 1fr; }
+}
