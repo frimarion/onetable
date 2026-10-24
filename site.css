@@ -3699,3 +3699,14 @@ footer .brand .green {
   .tg-post-body { font-size: 13px; }
 }
 @media (prefers-reduced-motion: reduce) { .tg-post { animation: none; } }
+
+/* Block 03, «Принимаем оплаты»: the evening's payments split by method */
+.wf-pay { display: grid; gap: 12px; margin-top: 18px; }
+.wf-pay-row { display: grid; grid-template-columns: 120px 1fr 72px; align-items: center; gap: 12px; font-size: 14px; }
+.wf-pay-row > span:first-child { display: flex; align-items: center; gap: 8px; color: var(--dark-ink-2); }
+.wf-pay-row > span:first-child i { width: 8px; height: 8px; border-radius: 50%; }
+.wf-pay-row b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wf-pay-bar { height: 6px; border-radius: 3px; background: var(--dark-line); overflow: hidden; }
+.wf-pay-bar i { display: block; height: 100%; border-radius: 3px; }
+.wf-pay .p1 { background: var(--glow); } .wf-pay .p2 { background: #5B8CFF; } .wf-pay .p3 { background: #E6A23C; }
+@media (max-width:640px) { .wf-pay-row { grid-template-columns: 96px 1fr 60px; gap: 8px; font-size: 13px; } }
