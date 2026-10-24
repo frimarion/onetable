@@ -3521,3 +3521,25 @@ footer .brand .green {
 .muted-heading {
   color: var(--accent);
 }
+
+/* Hero: devices fill the right column and span the copy, from the eyebrow down to the buttons */
+@media (min-width:641px) {
+  .hero-grid { align-content: center; }
+  .hero-devices { max-width: none; padding-bottom: 0; align-self: end; }
+  .hero-phone.iphone { bottom: 0; max-width: none; }
+}
+
+/* Block 02 on desktop: the MacBook spans the role cards, from the top of «Администратор»
+   to the bottom of «Владелец»; the kicker and the Doyle photo link sit above the stage */
+@media (min-width:1100px) {
+  .role-stage { padding: 0; }
+  .role-kicker { top: -30px; left: 0; }
+  .role-stage .tm-photo { top: -38px; right: 0; }
+}
+/* Below 1300px the role cards wrap and grow tall, so the MacBook keeps its own proportions there */
+@media (min-width:1300px) {
+  #role-panel-admin .role-mac { width: 100%; height: 100%; display: flex; flex-direction: column; }
+  #role-panel-admin .mac-screen { flex: 1; min-height: 0; display: flex; }
+  #role-panel-admin .admin-mock { aspect-ratio: auto; width: 100%; height: 100%; }
+  #role-panel-admin .mac-base { width: 105%; margin-left: -2.5%; }
+}
