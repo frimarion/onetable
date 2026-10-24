@@ -3451,3 +3451,24 @@ footer .brand .green {
   .header-cta.button-dark::before { display: none; }
   .header-inner nav.open { animation: none; }
 }
+
+/* Section intro sits under the heading (left column), not pushed to the right edge */
+.section-heading,
+.video-heading {
+  display: block;
+}
+.section-heading>p,
+.video-heading>p {
+  max-width: 600px;
+  margin: 18px 0 0;
+  font-size: 18px;
+  line-height: 1.6;
+}
+@media (max-width:900px) {
+  .section-heading>p,
+  .video-heading>p {
+    max-width: none;
+    font-size: 16px;
+    margin-top: 14px;
+  }
+}
