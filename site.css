@@ -3509,3 +3509,10 @@ footer .brand .green {
 .tv-frame .tm-bar { height: .7cqw; }
 .tv-frame .tm-next { font-size: 1.5cqw; }
 .tv-frame .tm-col { justify-content: center; }
+
+/* Floor on phones: the TV gets the full width, the iPhone remote goes under it instead of covering it */
+@media (max-width: 640px) {
+  .tv-wrap { display: flex; flex-direction: column; align-items: center; padding-bottom: 0; }
+  .tv { width: 100%; }
+  .remote.iphone { position: relative; right: auto; bottom: auto; width: clamp(160px, 50%, 200px); margin-top: 24px; }
+}
