@@ -305,7 +305,7 @@ if (!reduceMotion) {
     whenVisible(el, () => el.classList.add('in'), { threshold: 0.12 });
   });
 }
-$$('.owner-report, .sheet-mock').forEach(report => {
+$$('.owner-report').forEach(report => {
   if (!reduceMotion) report.classList.add('pre');
   whenVisible(report, () => { report.classList.remove('pre'); $$('[data-count]', report).forEach(n => countUp(n)); }, { threshold: 0.5 });
 });

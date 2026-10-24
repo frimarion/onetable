@@ -3576,17 +3576,11 @@ footer .brand .green {
 .sh-day > span:nth-child(6) { background: #cfe2f3; }
 .sh-day > span:nth-child(7) { background: #fce5cd; }
 .sh-day > span:last-child { font-weight: 400; }
-.sh-year i, .sh-month i { font-style: normal; }
 .sh-row > span:nth-child(2) { color: #666; }
 .sh-head > span:nth-child(2), .sh-year > span:nth-child(2), .sh-month > span:nth-child(2), .sh-day > span:nth-child(2) { color: inherit; }
 .sh-tabs { display: flex; gap: .4cqw; padding: .6cqw 1.6cqw; background: #f9fbfd; border-top: 1px solid #e1e3e1; font-size: 1.1cqw; color: #444746; }
 .sh-tabs span { padding: .5cqw 1.2cqw; border-radius: .6cqw; }
 .sh-tabs .on { background: #e1f0e5; color: #0b6b3a; font-weight: 600; }
-/* the newest evening slides in on top of the earlier days, the totals count up */
-.sh-new { transition: opacity .5s, transform .5s cubic-bezier(.2,.8,.2,1); }
-.sheet-mock.pre .sh-new { opacity: 0; transform: translateY(-.6cqw); }
-.sh-new:nth-child(6) { transition-delay: .06s; } .sh-new:nth-child(7) { transition-delay: .12s; } .sh-new:nth-child(8) { transition-delay: .18s; }
-.sh-new:nth-child(9) { transition-delay: .24s; } .sh-new:nth-child(10) { transition-delay: .3s; } .sh-new:nth-child(11) { transition-delay: .36s; }
 @media (max-width:640px) {
   .sheet-mock { aspect-ratio: auto; font-size: 1.6cqw; }
   .sh-menu { display: none; }
