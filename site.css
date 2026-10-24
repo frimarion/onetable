@@ -3614,8 +3614,25 @@ footer .brand .green {
    the phone runs from the top of the first card to the bottom of the last, the TV stands on the same baseline */
 @media (min-width:1300px) {
   #role-panel-floor .tv-wrap { height: 100%; padding-bottom: 0; display: flex; align-items: flex-end; container-type: size; }
-  /* phone width = its screen (9:19.2 of the height minus the 7px frame) + frame; the TV tucks 24px under it */
-  #role-panel-floor .tv { width: calc(100% - (100cqh - 14px) * 9 / 19.2 - 14px + 24px); }
+  /* --pw: phone width = its screen (9:19.2 of the height minus the 7px frame) + frame.
+     The TV runs well under the phone; the hidden strip is frame padding, so the timer (sized in cqw of
+     the frame's content box) is laid out only in the visible part, while the screen keeps the TV's 16:9 */
+  #role-panel-floor .tv-wrap { --pw: calc((100cqh - 14px) * 9 / 19.2 + 14px); }
+  #role-panel-floor .tv { width: calc(100% - var(--pw) * .3); }
+  #role-panel-floor .tv-frame { padding-right: calc(var(--pw) * .7); }
+  #role-panel-floor .tv-frame .timer-mock { aspect-ratio: auto; height: calc((100cqw + var(--pw) * .7) * 9 / 16); }
+  /* the bigger screen gets bigger type (about x1.15 of the regular TV sizes) */
+  #role-panel-floor .tv-frame .timer-mock { gap: 3.5cqw; padding: 4cqw 4.5cqw; }
+  #role-panel-floor .tv-frame .tm-label { font-size: 1.7cqw; margin-top: 3cqw; }
+  #role-panel-floor .tv-frame .tm-label:first-child { margin-top: 0; }
+  #role-panel-floor .tv-frame .tm-name { font-size: 2.9cqw; }
+  #role-panel-floor .tv-frame .tm-big { font-size: 4.7cqw; white-space: nowrap; }
+  #role-panel-floor .tv-frame .tm-level { font-size: 3cqw; }
+  #role-panel-floor .tv-frame .tm-blinds { font-size: 7.4cqw; }
+  #role-panel-floor .tv-frame .tm-ante { font-size: 1.95cqw; }
+  #role-panel-floor .tv-frame .tm-clock { font-size: 14.5cqw; }
+  #role-panel-floor .tv-frame .tm-bar { height: .9cqw; }
+  #role-panel-floor .tv-frame .tm-next { font-size: 1.7cqw; }
   #role-panel-floor .remote.iphone { top: 0; bottom: 0; width: auto; }
   #role-panel-floor .remote .iphone-screen { height: 100%; width: auto; aspect-ratio: 9 / 19.2; }
 }
