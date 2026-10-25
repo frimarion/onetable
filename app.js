@@ -264,7 +264,7 @@ $$('.admin-mock').forEach(mock => {
       s.tabIndex = on ? 0 : -1;
       panels[k].hidden = !on;
     });
-    clock.textContent = steps[cur].dataset.time;
+    if (clock) clock.textContent = steps[cur].dataset.time;
     $$('[data-count]', panels[cur]).forEach(n => countUp(n, 900));
     if (focus) steps[cur].focus();
   }
