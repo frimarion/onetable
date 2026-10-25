@@ -3717,10 +3717,16 @@ body, .proof-strip { background: var(--page); }
 .site-header { background: #f2f3f5eb; }
 .system-section { background: #E9EAEE; }
 
-/* Results block: two club-app figures, no quote — the stats take the full width */
-.trust-grid { grid-template-columns: 1fr; }
-.trust .trust-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 820px; }
-.trust .stat strong { white-space: nowrap; }
-.trust .stat span { max-width: 260px; }
-@media (max-width:640px) { .trust .trust-stats { grid-template-columns: 1fr; } .trust .stat strong { flex: none; } }
-@media (max-width:640px) { .trust .stat strong { flex: none; min-width: 118px; font-size: 44px; } }
+/* Logos strip with the club-app figures on the right (merged from the separate results block) */
+.proof-stats { display: flex; gap: 36px; margin-left: auto; padding-left: 36px; border-left: 1px solid var(--line); }
+.proof-stat strong { display: block; font-size: 40px; font-weight: 650; line-height: 1; letter-spacing: -.04em; color: var(--ink); white-space: nowrap; }
+.proof-stat span { display: block; max-width: 190px; margin-top: 8px; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+@media (max-width:1099px) {
+  .proof-inner { flex-wrap: wrap; }
+  .proof-stats { width: 100%; margin-left: 0; padding: 22px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width:640px) {
+  .proof-stats { justify-content: center; gap: 24px; text-align: center; }
+  .proof-stat strong { font-size: 34px; }
+  .proof-stat span { margin-inline: auto; max-width: 150px; font-size: 12px; }
+}
