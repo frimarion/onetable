@@ -3764,3 +3764,7 @@ body, .proof-strip { background: var(--page); }
 /* Section labels («02 / СИСТЕМА ДЛЯ КОМАНДЫ» etc.): bigger, they were barely noticeable at 12px */
 .section-heading .eyebrow, .app-copy .eyebrow, .video-heading .eyebrow, .faq-grid .eyebrow, .contact-inner .eyebrow { font-size: 15px; letter-spacing: 1.5px; }
 @media (max-width:640px) { .section-heading .eyebrow, .app-copy .eyebrow, .video-heading .eyebrow, .faq-grid .eyebrow, .contact-inner .eyebrow { font-size: 13px; letter-spacing: 1.2px; } }
+
+/* Section intros broken by sentence: room for each sentence on its own line */
+.section-heading > p { max-width: 760px; }
+@media (max-width:640px) { .section-heading > p br { display: none; } }
