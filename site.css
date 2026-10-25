@@ -3710,3 +3710,9 @@ footer .brand .green {
 .wf-pay-bar i { display: block; height: 100%; border-radius: 3px; }
 .wf-pay .p1 { background: var(--glow); } .wf-pay .p2 { background: #5B8CFF; } .wf-pay .p3 { background: #E6A23C; }
 @media (max-width:640px) { .wf-pay-row { grid-template-columns: 96px 1fr 60px; gap: 8px; font-size: 13px; } }
+
+/* Page background: light grey instead of near-white, so white cards read as cards */
+:root { --page: #F2F3F5; }
+body, .proof-strip { background: var(--page); }
+.site-header { background: #f2f3f5eb; }
+.system-section { background: #E9EAEE; }
