@@ -3716,3 +3716,11 @@ footer .brand .green {
 body, .proof-strip { background: var(--page); }
 .site-header { background: #f2f3f5eb; }
 .system-section { background: #E9EAEE; }
+
+/* Results block: two club-app figures, no quote — the stats take the full width */
+.trust-grid { grid-template-columns: 1fr; }
+.trust .trust-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 820px; }
+.trust .stat strong { white-space: nowrap; }
+.trust .stat span { max-width: 260px; }
+@media (max-width:640px) { .trust .trust-stats { grid-template-columns: 1fr; } .trust .stat strong { flex: none; } }
+@media (max-width:640px) { .trust .stat strong { flex: none; min-width: 118px; font-size: 44px; } }
