@@ -3760,3 +3760,7 @@ body, .proof-strip { background: var(--page); }
 .doc li { margin-bottom: 6px; }
 .doc a { color: var(--accent); }
 @media (max-width:640px) { .doc { padding-top: 36px; } .doc h1 { font-size: 30px; letter-spacing: -1px; } }
+
+/* Section labels («02 / СИСТЕМА ДЛЯ КОМАНДЫ» etc.): bigger, they were barely noticeable at 12px */
+.section-heading .eyebrow, .app-copy .eyebrow, .video-heading .eyebrow, .faq-grid .eyebrow, .contact-inner .eyebrow { font-size: 15px; letter-spacing: 1.5px; }
+@media (max-width:640px) { .section-heading .eyebrow, .app-copy .eyebrow, .video-heading .eyebrow, .faq-grid .eyebrow, .contact-inner .eyebrow { font-size: 13px; letter-spacing: 1.2px; } }
