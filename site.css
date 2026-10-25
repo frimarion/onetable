@@ -3730,3 +3730,9 @@ body, .proof-strip { background: var(--page); }
   .proof-stat strong { font-size: 34px; }
   .proof-stat span { margin-inline: auto; max-width: 150px; font-size: 12px; }
 }
+
+/* Contact strip and footer: Telegram contact link */
+.contact-subline a { color: var(--glow); text-decoration: none; font-weight: 600; }
+.contact-subline a:hover { text-decoration: underline; }
+.footer-inner > a[href^="https://t.me"] { font-size: 14px; color: var(--accent); font-weight: 600; text-decoration: none; }
+.footer-inner > a[href^="https://t.me"]:hover { text-decoration: underline; }
