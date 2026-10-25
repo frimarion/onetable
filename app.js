@@ -34,7 +34,10 @@ $$('dialog').forEach(dialog => {
   dialog.addEventListener('click', event => { if (event.target === dialog) { const r = dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dialog.close(); } });
   dialog.addEventListener('close', () => { document.body.style.overflow = ''; if (dialog === videoDialog) $('video', dialog).pause(); lastFocus?.focus(); });
 });
-const FORM_ENDPOINT = ''; // адрес приёма заявок (Formspree и т.п.); пока пусто — показываем запасной вариант
+// Заявки пишутся в self-hosted Supabase на сервере Doyle (Москва), таблица public.onetable_leads (см. supabase/001_onetable_leads.sql).
+// Ключ — публичный anon: по RLS он может только добавить заявку, читать заявки им нельзя.
+const FORM_ENDPOINT = 'https://api.doylepoker.ru/rest/v1/onetable_leads';
+const FORM_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzEzMjI1NjAwLCJleHAiOjE4Njg5OTIwMDB9.JEHfDm5ghdB_UgORrAXZzjcT8TFdecTPs88C77sm5MA';
 const form = $('#contact-form');
 const formStatus = $('#form-status');
 function showContactState(state) {
@@ -61,7 +64,7 @@ form.addEventListener('submit', async e => {
   const submit = $('button[type=submit]', form);
   submit.disabled = true; $('.submit-label', form).textContent = 'Отправляем…';
   try {
-    const r = await fetch(FORM_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ club: data.club, city: data.city, contact: data.contact, message: data.message }) });
+    const r = await fetch(FORM_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: FORM_KEY, Authorization: 'Bearer ' + FORM_KEY, Prefer: 'return=minimal' }, body: JSON.stringify({ club: data.club.trim(), city: data.city.trim() || null, contact: data.contact.trim(), message: data.message.trim() || null, consent: true }) });
     if (!r.ok) throw new Error(r.status);
     form.reset(); showContactState('done');
   } catch { showContactState('fallback'); }
