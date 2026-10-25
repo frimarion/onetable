@@ -54,6 +54,7 @@ form.addEventListener('submit', async e => {
   const data = Object.fromEntries(new FormData(form));
   formStatus.textContent = '';
   if (!data.club.trim() || !data.contact.trim()) { formStatus.textContent = 'Укажите название клуба и контакт для связи.'; (data.club.trim() ? form.contact : form.club).focus(); return; }
+  if (!data.consent) { formStatus.textContent = 'Отметьте согласие на обработку персональных данных — без него заявку не отправить.'; form.consent.focus(); return; }
   if (data.website) return;
   $('#inquiry-text').textContent = inquiryText(data);
   if (!FORM_ENDPOINT) { showContactState('fallback'); return; }

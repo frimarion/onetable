@@ -3736,3 +3736,27 @@ body, .proof-strip { background: var(--page); }
 .contact-subline a:hover { text-decoration: underline; }
 .footer-inner > a[href^="https://t.me"] { font-size: 14px; color: var(--accent); font-weight: 600; text-decoration: none; }
 .footer-inner > a[href^="https://t.me"]:hover { text-decoration: underline; }
+
+/* Contact form: consent to personal data processing (required, unchecked by default) */
+.contact-form .form-consent { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; font-weight: 400; line-height: 1.45; color: var(--ink-2); cursor: pointer; }
+.contact-form .form-consent input { flex: none; width: 18px; height: 18px; margin: 1px 0 0; padding: 0; accent-color: var(--accent); cursor: pointer; }
+.contact-form .form-consent a { color: var(--accent); }
+/* Footer: link to the privacy policy */
+.footer-inner > a.footer-doc { font-size: 14px; color: var(--ink-2); text-decoration: none; }
+.footer-inner > a.footer-doc:hover { color: var(--ink); text-decoration: underline; }
+
+/* Legal pages (privacy.html, consent.html) */
+.doc-body { background: var(--page); color: var(--ink); }
+.doc-header { border-bottom: 1px solid var(--line); }
+.doc-header .container { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+.doc-back { font-size: 14px; color: var(--ink-2); text-decoration: none; }
+.doc-back:hover { color: var(--ink); }
+.doc { max-width: 760px; padding-top: 56px; padding-bottom: 80px; font-size: 16px; line-height: 1.65; }
+.doc h1 { margin: 14px 0 6px; font-size: 40px; line-height: 1.12; letter-spacing: -1.4px; font-weight: 600; text-wrap: balance; }
+.doc-date { margin: 0 0 32px; font: 500 13px/1.4 var(--mono); color: var(--ink-2); }
+.doc h2 { margin: 32px 0 10px; font-size: 20px; letter-spacing: -.3px; font-weight: 600; }
+.doc p { margin: 0 0 12px; }
+.doc ul { margin: 0 0 12px; padding-left: 22px; }
+.doc li { margin-bottom: 6px; }
+.doc a { color: var(--accent); }
+@media (max-width:640px) { .doc { padding-top: 36px; } .doc h1 { font-size: 30px; letter-spacing: -1px; } }
