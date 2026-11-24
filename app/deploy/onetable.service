@@ -1,0 +1,26 @@
+# Скопировать в /etc/systemd/system/onetable.service
+# Перечитать: systemctl daemon-reload && systemctl enable --now onetable
+
+[Unit]
+Description=OneTable Club Platform (app.onetable.pro)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=onetable
+Group=onetable
+WorkingDirectory=/opt/onetable/app
+EnvironmentFile=/etc/onetable/app.env
+ExecStart=/usr/bin/node /opt/onetable/app/server/http.ts
+Restart=always
+RestartSec=3
+
+# Харденинг процесса
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/onetable/app
+
+[Install]
+WantedBy=multi-user.target

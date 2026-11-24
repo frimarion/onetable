@@ -136,6 +136,10 @@ svg { flex-shrink: 0; vertical-align: middle; }
 .avatar.has-photo img, .seat-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%; }
 .sidebar-conn { display: grid; gap: 8px; width: 100%; }
 .sidebar-conn strong { display: block; color: var(--text); font-size: 13px; }
+.auth-screen { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
+.auth-card { width: min(100%, 420px); padding: 28px 26px; display: grid; gap: 14px; }
+.auth-card .brand { padding-left: 0; }
+.auth-card h1 { font-size: 24px; }
 
 .sidebar { display: flex; flex-direction: column; gap: 28px; padding: 16px 16px 24px; }
 .club-switch { display: grid; gap: 7px; }

@@ -1,0 +1,112 @@
+# Деплой OneTable на `app.onetable.pro` (VPS)
+
+Архитектура:
+- Лендинг `onetable.pro` остаётся на GitHub Pages.
+- Кабинет `app.onetable.pro` крутится на VPS: `Nginx (HTTPS + rate-limit) → Node 24 (127.0.0.1:4181) → PostgreSQL (отдельная БД onetable с RLS)`.
+- База Дойла и база OneTable полностью изолированы друг от друга.
+
+---
+
+## 1. DNS
+У регистратора домена `onetable.pro` добавить запись:
+- **Тип:** `A`
+- **Имя:** `app`
+- **Значение:** `<IP вашего VPS>`
+
+---
+
+## 2. Подготовка PostgreSQL на VPS
+Убедитесь, что PostgreSQL слушает только `127.0.0.1` (`listen_addresses = 'localhost'` в `postgresql.conf`).
+
+Отредактируйте пароли в `app/deploy/setup-db.sql` и выполните от `postgres`:
+```bash
+sudo -u postgres psql -f /opt/onetable/app/deploy/setup-db.sql
+```
+
+---
+
+## 3. Код, сборка и применение схемы + RLS
+```bash
+sudo useradd -r -s /usr/sbin/nologin onetable
+sudo mkdir -p /opt/onetable /etc/onetable /var/backups/onetable
+sudo git clone https://github.com/frimarion/onetable.git /opt/onetable
+cd /opt/onetable/app
+sudo npm ci
+sudo npm run build
+```
+
+Применить схему и RLS от роли владельца `onetable_owner`:
+```bash
+DATABASE_URL="postgres://onetable_owner:<OWNER_PASS>@127.0.0.1:5432/onetable" \
+  node server/bootstrap.ts init-schema
+```
+
+Выдать минимальные права рабочей роли `onetable_app` (без `DROP`, `TRUNCATE` и `BYPASSRLS`):
+```bash
+sudo -u postgres psql -d onetable -c "
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO onetable_app;
+  GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO onetable_app;
+"
+```
+
+---
+
+## 4. Создать первый клуб и владельца
+```bash
+DATABASE_URL="postgres://onetable_owner:<OWNER_PASS>@127.0.0.1:5432/onetable" \
+  node server/bootstrap.ts create-club doyle "Doyle Poker Club" "Москва" "#2BD98A"
+
+DATABASE_URL="postgres://onetable_owner:<OWNER_PASS>@127.0.0.1:5432/onetable" \
+  node server/bootstrap.ts create-owner doyle alexander@doyle.ru "Александр" "<НАДЁЖНЫЙ_ПАРОЛЬ_10+>"
+```
+
+Для подключения нового клуба-клиента (выдаст одноразовую ссылку на 24 ч):
+```bash
+DATABASE_URL="postgres://onetable_owner:<OWNER_PASS>@127.0.0.1:5432/onetable" \
+  node server/bootstrap.ts create-club royal "Royal Poker Club" "Казань" "#2F6BFF"
+
+DATABASE_URL="postgres://onetable_owner:<OWNER_PASS>@127.0.0.1:5432/onetable" \
+  node server/bootstrap.ts invite royal owner@royalpoker.ru owner
+```
+
+---
+
+## 5. Файл окружения и systemd
+Создать `/etc/onetable/app.env` с правами `600` (только для пользователя `onetable`):
+```bash
+sudo tee /etc/onetable/app.env >/dev/null <<'EOF'
+NODE_ENV=production
+HOST=127.0.0.1
+PORT=4181
+COOKIE_SECURE=1
+DATABASE_URL=postgres://onetable_app:<APP_PASS>@127.0.0.1:5432/onetable
+EOF
+sudo chown onetable:onetable /etc/onetable/app.env
+sudo chmod 600 /etc/onetable/app.env
+```
+
+Запустить сервис:
+```bash
+sudo cp /opt/onetable/app/deploy/onetable.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now onetable
+sudo systemctl status onetable
+```
+
+---
+
+## 6. Nginx и HTTPS (Let's Encrypt)
+```bash
+sudo cp /opt/onetable/app/deploy/nginx-app.onetable.pro.conf /etc/nginx/sites-available/app.onetable.pro
+sudo ln -s /etc/nginx/sites-available/app.onetable.pro /etc/nginx/sites-enabled/
+sudo certbot --nginx -d app.onetable.pro
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+---
+
+## 7. Ежедневный бэкап БД (cron)
+Добавить в `sudo crontab -e`:
+```cron
+15 4 * * * sudo -u postgres pg_dump -Fc onetable > /var/backups/onetable/onetable-$(date +\%F).dump && find /var/backups/onetable -name '*.dump' -mtime +14 -delete
+```

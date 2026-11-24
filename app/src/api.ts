@@ -4,8 +4,15 @@ import {
   doyleSessionOf, doyleSignIn, loadDoyleSnapshot, loadSavedDoyleAuth, saveDoyleAuth, type DoyleAuth,
 } from './doyleAdapter';
 
+export type ProdAuthState = {
+  user: { id: string; email: string; name: string; isSuperadmin: boolean };
+  role: 'owner' | 'admin' | 'floor' | 'dealer';
+  session: Session;
+  memberships: { club: Session['club']; role: string; tableNo: number | null }[];
+};
+
 export async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(path, options);
+  const response = await fetch(path, { credentials: 'same-origin', ...options });
   const body = await response.json();
   if (!response.ok) throw new Error(body.error || 'Сервер недоступен');
   return body;
@@ -13,6 +20,9 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
 
 export function useOffice() {
   const [doyleAuth, setDoyleAuth] = useState<DoyleAuth | null>(() => loadSavedDoyleAuth());
+  const [prodMode, setProdMode] = useState(false);
+  const [prodAuth, setProdAuth] = useState<ProdAuthState | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [token, setToken] = useState(() => new URLSearchParams(location.hash.slice(1)).get('session') || 'doyle-admin');
   const [id, setId] = useState(() => new URLSearchParams(location.hash.slice(1)).get('tournament') || 'doyle-main');
@@ -24,21 +34,53 @@ export function useOffice() {
   const inFlight = useRef(false);
   const doyleAuthRef = useRef<DoyleAuth | null>(doyleAuth);
   doyleAuthRef.current = doyleAuth;
+  const prodModeRef = useRef(prodMode);
+  prodModeRef.current = prodMode;
 
   const isDoyleLive = Boolean(doyleAuth);
-  const activeSession = doyleAuth ? doyleSessionOf(doyleAuth) : sessions.find(item => item.token === token);
+  const activeSession = doyleAuth
+    ? doyleSessionOf(doyleAuth)
+    : prodMode
+      ? prodAuth?.session
+      : sessions.find(item => item.token === token);
   const activeToken = activeSession?.token ?? token;
-  const activeSessions = doyleAuth && activeSession ? [activeSession] : sessions;
-  const data = snapshot?.token === activeToken && (isDoyleLive || snapshot.data.tournament.id === id) ? snapshot.data : undefined;
+  const activeSessions = doyleAuth && activeSession
+    ? [activeSession]
+    : prodMode && prodAuth
+      ? prodAuth.memberships.map(m => ({ token: 'club:' + m.club.id, club: m.club, role: (m.role === 'dealer' ? 'dealer' : 'admin') as Session['role'], table: m.tableNo }))
+      : sessions;
+  const data = snapshot?.token === activeToken && (isDoyleLive || prodMode || snapshot.data.tournament.id === id) ? snapshot.data : undefined;
   const path = '/api/tournaments/' + id;
 
+  const loadProdMe = useCallback(async () => {
+    const resp = await fetch('/api/auth/me', { credentials: 'same-origin' });
+    if (resp.status === 401) {
+      setProdAuth(null);
+      setAuthChecked(true);
+      return;
+    }
+    const body = await resp.json();
+    if (!resp.ok) throw new Error(body.error || 'Ошибка авторизации');
+    setProdAuth(body as ProdAuthState);
+    if (body.defaultTournamentId) setId(body.defaultTournamentId);
+    setAuthChecked(true);
+  }, []);
+
   const load = useCallback(() => {
-    if (doyleAuthRef.current) return;
-    request<Session[]>('/api/demo').then(items => {
+    if (doyleAuthRef.current) { setAuthChecked(true); return; }
+    fetch('/api/demo', { credentials: 'same-origin' }).then(async resp => {
+      if (resp.status === 404) {
+        setProdMode(true);
+        await loadProdMe();
+        return;
+      }
+      const items = (await resp.json()) as Session[];
+      if (!resp.ok) throw new Error('Сервер недоступен');
       setSessions(items);
       setToken(current => items.some(item => item.token === current) ? current : 'doyle-admin');
-    }).catch((reason: Error) => setError(reason.message));
-  }, []);
+      setAuthChecked(true);
+    }).catch((reason: Error) => { setError(reason.message); setAuthChecked(true); });
+  }, [loadProdMe]);
   useEffect(load, [load]);
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
@@ -54,13 +96,15 @@ export function useOffice() {
       }
       return;
     }
-    const next = await request<Snapshot>(path, { headers: { Authorization: 'Bearer ' + token }, signal });
+    if (prodModeRef.current && (!id || id === 'doyle-main')) return;
+    const headers: Record<string, string> = prodModeRef.current ? {} : { Authorization: 'Bearer ' + token };
+    const next = await request<Snapshot>(path, { headers, signal });
     if (!signal?.aborted) {
-      setSnapshot(previous => previous?.token === token && previous.data.tournament.id === next.tournament.id &&
-        previous.data.serverTime > next.serverTime ? previous : { data: next, token });
+      setSnapshot(previous => previous?.token === activeToken && previous.data.tournament.id === next.tournament.id &&
+        previous.data.serverTime > next.serverTime ? previous : { data: next, token: activeToken });
       setError('');
     }
-  }, [path, token, id]);
+  }, [path, token, activeToken, id]);
 
   useEffect(() => {
     if (!activeSession) return;
@@ -94,9 +138,9 @@ export function useOffice() {
   }, [activeSession?.token, isDoyleLive, refresh]);
 
   useEffect(() => {
-    if (isDoyleLive) return;
+    if (isDoyleLive || prodMode) return;
     history.replaceState(null, '', '#' + new URLSearchParams({ session: token, tournament: id }));
-  }, [token, id, isDoyleLive]);
+  }, [token, id, isDoyleLive, prodMode]);
 
   useEffect(() => {
     if (!notice) return;
@@ -160,6 +204,49 @@ export function useOffice() {
       setSessions(items);
     }).catch((reason: Error) => setError(reason.message));
   }
+  async function prodLogin(email: string, password: string) {
+    setBusy(true);
+    setError('');
+    try {
+      await request('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      await loadProdMe();
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function prodAcceptInvite(inviteToken: string, name: string, password: string) {
+    setBusy(true);
+    setError('');
+    try {
+      await request('/api/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: inviteToken, name, password }),
+      });
+      history.replaceState(null, '', location.pathname);
+      await loadProdMe();
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function prodLogout() {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+    setProdAuth(null);
+    setSnapshot(undefined);
+    setNotice('');
+  }
+  async function prodInvite(email: string, role: 'owner' | 'admin' | 'floor' | 'dealer') {
+    const res = await request<{ token: string; expiresAt: number }>('/api/auth/invites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, role }),
+    });
+    return `${location.origin}/?invite=${res.token}`;
+  }
   const run: Run = async (action, after) => {
     if (doyleAuthRef.current) {
       setNotice('Безопасный режим просмотра Дойла: изменения не отправляются в боевую базу');
@@ -171,12 +258,15 @@ export function useOffice() {
     setNotice('');
     const endpoint = action.type === 'createTournament' || action.type === 'copyTournamentWeek'
       ? '/api/clubs/' + activeSession?.club.id + '/tournaments' : path + '/commands';
-    const key = JSON.stringify([token, endpoint, action]);
+    const key = JSON.stringify([activeToken, endpoint, action]);
     if (pending.current?.key !== key) pending.current = { key, id: crypto.randomUUID() };
     try {
+      const headers: Record<string, string> = prodModeRef.current
+        ? { 'Content-Type': 'application/json' }
+        : { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
       const response = await request<CommandResult>(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        headers,
         body: JSON.stringify({ action, id: pending.current.id }),
       });
       pending.current = undefined;
@@ -210,6 +300,13 @@ export function useOffice() {
     doyleAuth,
     connectDoyle,
     disconnectDoyle,
+    prodMode,
+    prodAuth,
+    authChecked,
+    prodLogin,
+    prodAcceptInvite,
+    prodLogout,
+    prodInvite,
     setId: (next: string) => { if (!inFlight.current) { setId(next); setError(''); } },
   };
 }

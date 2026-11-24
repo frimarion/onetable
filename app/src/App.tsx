@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { ArrowLeft, CalendarPlus, ChevronRight, Clock3, Database, ExternalLink, LayoutGrid, LogOut, Plus, ShieldCheck, Trophy, UsersRound, Wallet, X } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Check, ChevronRight, Clock3, Copy, Database, ExternalLink, LayoutGrid, LogOut, Plus, ShieldCheck, Trophy, UserPlus, UsersRound, Wallet, X } from 'lucide-react';
 import { useOffice } from './api';
 import { Brand, Heading, pad, Person, State, Timer, money, startLabel } from './widgets';
 import { Crm, Dialog, bustModal, type Modal } from './crm';
@@ -59,18 +59,144 @@ function DoyleConnectDialog({ busy, onConnect, onClose }: {
   </div>;
 }
 
+function ProdAuthScreen({ busy, onLogin, onAcceptInvite }: {
+  busy: boolean;
+  onLogin: (email: string, password: string) => Promise<void>;
+  onAcceptInvite: (token: string, name: string, password: string) => Promise<void>;
+}) {
+  const inviteToken = new URLSearchParams(location.search).get('invite') || '';
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [err, setErr] = useState('');
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setErr('');
+    try {
+      if (inviteToken) await onAcceptInvite(inviteToken, name, password);
+      else await onLogin(email, password);
+    } catch (reason) {
+      setErr(reason instanceof Error ? reason.message : 'Ошибка входа');
+    }
+  }
+
+  return <main className="standalone auth-screen">
+    <div className="panel auth-card">
+      <Brand />
+      <h1>{inviteToken ? 'Активация приглашения' : 'Вход в кабинет клуба'}</h1>
+      <p className="muted">
+        {inviteToken
+          ? 'Задайте имя и надёжный пароль (минимум 10 символов, буквы и цифры).'
+          : 'Доступ только по приглашению клуба. После входа откроется исключительно ваш клуб.'}
+      </p>
+      {err && <p className="alert" role="alert">{err}</p>}
+      <form className="admin-form" onSubmit={submit}>
+        {inviteToken ? (
+          <label>Ваше имя
+            <input type="text" required autoFocus value={name} disabled={busy} onChange={e => setName(e.target.value)} placeholder="Александр" />
+          </label>
+        ) : (
+          <label>Email
+            <input type="email" required autoFocus autoComplete="username" value={email} disabled={busy} onChange={e => setEmail(e.target.value)} placeholder="you@club.ru" />
+          </label>
+        )}
+        <label>{inviteToken ? 'Новый пароль' : 'Пароль'}
+          <input type="password" required minLength={inviteToken ? 10 : 1} autoComplete={inviteToken ? 'new-password' : 'current-password'} value={password} disabled={busy} onChange={e => setPassword(e.target.value)} />
+        </label>
+        <button className="button primary wide" type="submit" disabled={busy}>
+          {busy ? 'Подождите…' : inviteToken ? 'Активировать доступ' : 'Войти'}
+        </button>
+      </form>
+    </div>
+  </main>;
+}
+
+function InviteMemberDialog({ onInvite, onClose }: {
+  onInvite: (email: string, role: 'owner' | 'admin' | 'floor' | 'dealer') => Promise<string>;
+  onClose: () => void;
+}) {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<'owner' | 'admin' | 'floor' | 'dealer'>('admin');
+  const [link, setLink] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [err, setErr] = useState('');
+  const [sending, setSending] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setErr('');
+    setSending(true);
+    try {
+      const url = await onInvite(email, role);
+      setLink(url);
+      setCopied(false);
+    } catch (reason) {
+      setErr(reason instanceof Error ? reason.message : 'Не удалось создать приглашение');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return <div className="backdrop" onClick={onClose}>
+    <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="invite-title" onClick={e => e.stopPropagation()}>
+      <div className="dialog-head">
+        <h2 id="invite-title">Пригласить сотрудника</h2>
+        <button className="button icon" aria-label="Закрыть" onClick={onClose}><X size={18} /></button>
+      </div>
+      <div className="dialog-body">
+        <p className="muted">Создаётся одноразовая защищённая ссылка (действует 24 часа). Сотрудник сам задаст свой пароль — пересылать пароли в чатах не нужно.</p>
+        {err && <p className="alert" role="alert">{err}</p>}
+        <form className="admin-form" onSubmit={submit}>
+          <label>Email сотрудника
+            <input type="email" required value={email} disabled={sending} onChange={e => setEmail(e.target.value)} placeholder="admin@club.ru" />
+          </label>
+          <label>Роль в клубе
+            <select value={role} disabled={sending} onChange={e => setRole(e.target.value as typeof role)}>
+              <option value="admin">Администратор (турниры, касса, CRM)</option>
+              <option value="floor">Флор (турниры и рассадка)</option>
+              <option value="dealer">Дилер (планшет стола)</option>
+              <option value="owner">Владелец клуба</option>
+            </select>
+          </label>
+          <button className="button primary" type="submit" disabled={sending}>{sending ? 'Создаём…' : 'Создать ссылку-приглашение'}</button>
+        </form>
+        {link && <div className="admin-form" style={{ marginTop: 12 }}>
+          <label>Одноразовая ссылка
+            <input type="text" readOnly value={link} onFocus={e => e.currentTarget.select()} />
+          </label>
+          <button className="button" type="button" onClick={async () => {
+            try { await navigator.clipboard.writeText(link); setCopied(true); } catch { setCopied(false); }
+          }}>{copied ? <Check size={15} /> : <Copy size={15} />} {copied ? 'Скопировано' : 'Копировать ссылку'}</button>
+        </div>}
+      </div>
+    </div>
+  </div>;
+}
+
 export function App() {
   const office = useOffice();
-  const { session, data, busy, error, notice, setNotice, sessions, run, select, external, doyleAuth, connectDoyle, disconnectDoyle } = office;
+  const {
+    session, data, busy, error, notice, setNotice, sessions, run, select, external,
+    doyleAuth, connectDoyle, disconnectDoyle,
+    prodMode, prodAuth, authChecked, prodLogin, prodAcceptInvite, prodLogout, prodInvite,
+  } = office;
   const [view, setView] = useState<View>('live');
   const [modal, setModal] = useState<Modal>();
   const [connectOpen, setConnectOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const open = (next: Modal) => { setNotice(''); setModal(next); };
   const admin = sessions.find(item => item.role === 'admin' && item.club.id === session?.club.id);
+
+  if (prodMode && authChecked && !prodAuth) {
+    return <ProdAuthScreen busy={busy} onLogin={prodLogin} onAcceptInvite={prodAcceptInvite} />;
+  }
+
   if (!session || !data) {
     return <main className="standalone"><Brand /><h1>{error ? 'Не удалось открыть кабинет' : doyleAuth ? 'Загружаем данные Дойла…' : 'Загружаем кабинет'}</h1>
       {error && <><p>{error}</p><div className="actions">
         {doyleAuth && <button className="button primary" onClick={disconnectDoyle}>Вернуться в демо</button>}
+        {prodMode && prodAuth && <button className="button" onClick={() => void prodLogout()}>Выйти</button>}
         <button className="button" onClick={() => { if (sessions.length) location.assign(location.pathname); else office.load(); }}>Повторить</button>
       </div></>}
     </main>;
@@ -91,10 +217,10 @@ export function App() {
       <div className="top-right">
         {doyleAuth
           ? <span className="state live" title={`Подключено к ${doyleAuth.host || 'Supabase Дойла'} (только чтение)`}><ShieldCheck size={14} /> Дойл · просмотр</span>
-          : <button className="button compact" type="button" onClick={() => setConnectOpen(true)}><Database size={14} /> Подключить Дойл</button>}
+          : !prodMode && <button className="button compact" type="button" onClick={() => setConnectOpen(true)}><Database size={14} /> Подключить Дойл</button>}
         <ThemeSwitch />
         {dealer ? <button className="button" onClick={() => admin && select(admin)}><ArrowLeft size={16} /> Кабинет</button> :
-          <span className="profile"><span className="avatar">{(doyleAuth?.email?.[0] || 'А').toUpperCase()}</span><span>{doyleAuth ? doyleAuth.email : 'Администратор'}</span></span>}
+          <span className="profile"><span className="avatar">{(prodAuth?.user.name?.[0] || prodAuth?.user.email?.[0] || doyleAuth?.email?.[0] || 'А').toUpperCase()}</span><span>{prodAuth ? (prodAuth.user.name || prodAuth.user.email) : doyleAuth ? doyleAuth.email : 'Администратор'}</span></span>}
       </div>
     </header>
     {!dealer && <aside className="sidebar">
@@ -112,7 +238,15 @@ export function App() {
         <button disabled={busy} className={screen === 'crm' ? 'selected' : ''} onClick={() => setView('crm')}><UsersRound size={18} /> CRM клуба</button>
       </nav>
       <div className="sidebar-bottom">
-        {doyleAuth ? (
+        {prodMode && prodAuth ? (
+          <div className="sidebar-conn">
+            <div><strong>{session.club.name}</strong><small>{prodAuth.user.email}</small></div>
+            {prodAuth.role === 'owner' && (
+              <button className="button compact wide" type="button" onClick={() => setInviteOpen(true)}><UserPlus size={14} /> Пригласить</button>
+            )}
+            <button className="button compact wide" type="button" onClick={() => void prodLogout()}><LogOut size={14} /> Выйти</button>
+          </div>
+        ) : doyleAuth ? (
           <div className="sidebar-conn">
             <div><strong>Doyle · Supabase</strong><small>Режим просмотра</small></div>
             <button className="button compact wide" type="button" onClick={disconnectDoyle}><LogOut size={14} /> Выйти в демо</button>
@@ -180,6 +314,7 @@ export function App() {
     ]} />}
     {modal && <Dialog modal={modal} data={data} run={run} close={() => setModal(undefined)} busy={busy} notice={notice} change={open} />}
     {connectOpen && <DoyleConnectDialog busy={busy} onConnect={connectDoyle} onClose={() => setConnectOpen(false)} />}
+    {inviteOpen && <InviteMemberDialog onInvite={prodInvite} onClose={() => setInviteOpen(false)} />}
     {notice && !modal && <div className="toast" role="status">{notice}<button aria-label="Скрыть сообщение" onClick={() => setNotice('')}><X size={17} /></button></div>}
   </div>;
 }
