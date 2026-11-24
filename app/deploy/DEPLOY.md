@@ -93,6 +93,13 @@ sudo systemctl enable --now onetable
 sudo systemctl status onetable
 ```
 
+Для автоматического просмотра Doyle создайте `/etc/onetable/doyle.env` с правами `600`:
+
+- `DOYLE_ONETABLE_USER_ID` — ID связанного владельца клуба `doyle` в базе OneTable.
+- `DOYLE_SERVICE_ROLE_KEY` — серверный ключ Supabase Doyle.
+
+Сервис читает Doyle через локальный шлюз Supabase `127.0.0.1:8000`. После настройки файла перезапустите `onetable`.
+
 ---
 
 ## 6. Nginx и HTTPS (Let's Encrypt)

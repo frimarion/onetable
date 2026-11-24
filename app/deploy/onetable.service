@@ -11,6 +11,7 @@ User=onetable
 Group=onetable
 WorkingDirectory=/opt/onetable/app
 EnvironmentFile=/etc/onetable/app.env
+EnvironmentFile=-/etc/onetable/doyle.env
 ExecStart=/usr/bin/node /opt/onetable/app/server/http.ts
 Restart=always
 RestartSec=3

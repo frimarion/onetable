@@ -15,13 +15,12 @@ import { scheduleHref } from './PublicSchedule';
 
 type View = 'live' | 'crm' | 'rating' | 'finance' | 'tournaments' | 'create' | 'edit' | 'week';
 
-function DoyleConnectDialog({ busy, initialEmail, onConnect, onClose }: {
+function DoyleConnectDialog({ busy, onConnect, onClose }: {
   busy: boolean;
-  initialEmail: string;
   onConnect: (email: string, password: string) => Promise<void>;
   onClose: () => void;
 }) {
-  const [email, setEmail] = useState(initialEmail);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   async function submit(event: FormEvent) {
@@ -195,17 +194,17 @@ export function App() {
   const office = useOffice();
   const {
     session, data, busy, error, notice, setNotice, sessions, run, select, external,
-    doyleAuth, canConnectDoyle, connectDoyle, disconnectDoyle,
+    doyleAuth, isDoyleLive, connectDoyle, disconnectDoyle, showLinkedDoyle,
     prodMode, prodAuth, authChecked, prodLogin, prodAcceptInvite, prodLogout, prodInvite,
   } = office;
-  const [view, setView] = useState<View>('live');
+  const [view, setView] = useState<View>();
   const [modal, setModal] = useState<Modal>();
   const [connectOpen, setConnectOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const open = (next: Modal) => { setNotice(''); setModal(next); };
   const admin = sessions.find(item => item.role === 'admin' && item.club.id === session?.club.id);
-  const connectDialog = connectOpen && canConnectDoyle && <DoyleConnectDialog
-    busy={busy} initialEmail={prodAuth?.user.email ?? ''} onConnect={async (email, password) => {
+  const connectDialog = connectOpen && !prodMode && <DoyleConnectDialog
+    busy={busy} onConnect={async (email, password) => {
       await connectDoyle(email, password);
       setView('tournaments');
       setModal(undefined);
@@ -215,15 +214,20 @@ export function App() {
     setView('tournaments');
     setModal(undefined);
   }
+  function openLinkedDoyle() {
+    showLinkedDoyle();
+    setView('tournaments');
+    setModal(undefined);
+  }
 
   if (prodMode && authChecked && !prodAuth) {
     return <ProdAuthScreen busy={busy} onLogin={prodLogin} onAcceptInvite={prodAcceptInvite} />;
   }
 
   if (!session || !data) {
-    return <main className="standalone"><Brand /><h1>{error ? 'Не удалось открыть кабинет' : doyleAuth ? 'Загружаем данные Дойла…' : 'Загружаем кабинет'}</h1>
-      {doyleAuth && <button className="button" onClick={returnToOneTable}>{prodMode ? 'Вернуться в OneTable' : 'Вернуться в демо'}</button>}
-      {!doyleAuth && prodAuth && canConnectDoyle && <button className="button" onClick={() => setConnectOpen(true)}><Database size={14} /> Подключить Дойл</button>}
+    return <main className="standalone"><Brand /><h1>{error ? 'Не удалось открыть кабинет' : isDoyleLive ? 'Загружаем данные Дойла…' : 'Загружаем кабинет'}</h1>
+      {isDoyleLive && <button className="button" onClick={returnToOneTable}>{prodMode ? 'Вернуться в OneTable' : 'Вернуться в демо'}</button>}
+      {!isDoyleLive && prodAuth?.doyleAccess && <button className="button" onClick={openLinkedDoyle}><Database size={14} /> Турниры Doyle</button>}
       {error && <><p>{error}</p><div className="actions">
         {prodMode && prodAuth && <button className="button" onClick={() => void prodLogout()}>Выйти</button>}
         <button className="button" onClick={() => { if (sessions.length) location.assign(location.pathname); else office.load(); }}>Повторить</button>
@@ -234,7 +238,8 @@ export function App() {
   if (session.role === 'display') return <Display key={data.tournament.id} data={data} error={error} />;
 
   const dealer = session.role === 'dealer';
-  const screen = dealer ? 'dealer' : view === 'live' && data.tournament.state === 'draft' ? 'edit' : view;
+  const currentView = view ?? (isDoyleLive ? 'tournaments' : 'live');
+  const screen = dealer ? 'dealer' : currentView === 'live' && data.tournament.state === 'draft' ? 'edit' : currentView;
   const breadcrumb = screen === 'crm' ? 'CRM' : screen === 'rating' ? 'Рейтинг' : screen === 'finance' ? 'Финансы' : dealer ? 'Планшет дилера' : 'Турниры';
   function navigate(next: View) {
     setView(next);
@@ -245,9 +250,9 @@ export function App() {
       <Brand />
       <div className="top-context"><span>Кабинет клуба</span><ChevronRight size={14} /><span>{breadcrumb}</span></div>
       <div className="top-right">
-        {doyleAuth
-          ? <span className="state live" title={`Подключено к ${doyleAuth.host || 'Supabase Дойла'} (только чтение)`}><ShieldCheck size={14} /> Дойл · просмотр</span>
-          : canConnectDoyle && <button className="button compact" type="button" onClick={() => setConnectOpen(true)}><Database size={14} /> Подключить Дойл</button>}
+        {isDoyleLive && <span className="state live"><ShieldCheck size={14} /> Дойл · просмотр</span>}
+        {!isDoyleLive && prodAuth?.doyleAccess && <button className="button compact" type="button" onClick={openLinkedDoyle}><Database size={14} /> Турниры Doyle</button>}
+        {!isDoyleLive && !prodMode && <button className="button compact" type="button" onClick={() => setConnectOpen(true)}><Database size={14} /> Подключить Дойл</button>}
         <ThemeSwitch />
         {dealer ? <button className="button" onClick={() => admin && select(admin)}><ArrowLeft size={16} /> Кабинет</button> :
           <span className="profile"><span className="avatar">{(prodAuth?.user.name?.[0] || prodAuth?.user.email?.[0] || doyleAuth?.email?.[0] || 'А').toUpperCase()}</span><span>{prodAuth ? (prodAuth.user.name || prodAuth.user.email) : doyleAuth ? doyleAuth.email : 'Администратор'}</span></span>}
@@ -268,10 +273,11 @@ export function App() {
         <button disabled={busy} className={screen === 'crm' ? 'selected' : ''} onClick={() => setView('crm')}><UsersRound size={18} /> CRM клуба</button>
       </nav>
       <div className="sidebar-bottom">
-        {doyleAuth ? (
+        {isDoyleLive ? (
           <div className="sidebar-conn">
             <div><strong>Doyle · Supabase</strong><small>Режим просмотра</small></div>
             <button className="button compact wide" type="button" onClick={returnToOneTable}><ArrowLeft size={14} /> {prodMode ? 'Вернуться в OneTable' : 'Выйти в демо'}</button>
+            {prodMode && <button className="button compact wide" type="button" onClick={() => void prodLogout()}><LogOut size={14} /> Выйти</button>}
           </div>
         ) : prodMode && prodAuth ? (
           <div className="sidebar-conn">
@@ -292,7 +298,7 @@ export function App() {
     <main className="sheet">
       {error && <p className="alert" role="status">Связь прервана. Показано последнее состояние.</p>}
       {screen === 'tournaments' && <>
-        <Heading title="Турниры" subtitle={data.club.venue} actions={doyleAuth ? <button className="button" onClick={returnToOneTable}><ArrowLeft size={15} /> {prodMode ? 'Вернуться в OneTable' : 'Выйти в демо'}</button> : <>
+        <Heading title="Турниры" subtitle={data.club.venue} actions={isDoyleLive ? <button className="button" onClick={returnToOneTable}><ArrowLeft size={15} /> {prodMode ? 'Вернуться в OneTable' : 'Выйти в демо'}</button> : <>
           <a className="button" href={scheduleHref(data.club.id)} target="_blank" rel="noreferrer">Расписание клуба <ExternalLink size={15} /></a>
           <button className="button" disabled={busy} onClick={() => { setNotice(''); setView('week'); }}><CalendarPlus size={17} /> Создать неделю</button>
           <button className="button primary" disabled={busy} onClick={() => { setNotice(''); setView('create'); }}><Plus size={17} /> Создать турнир</button>

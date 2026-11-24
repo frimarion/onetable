@@ -1,3 +1,4 @@
+import { doyleQueries, optionalDoyleResources, type DoyleResource } from '../shared/doyleQueries';
 import type {
   Club, Entry, JournalItem, Payment, Player, Session, Snapshot, Table, Tournament, Visit,
 } from '../shared/model';
@@ -198,7 +199,7 @@ export function saveDoyleAuth(auth: DoyleAuth | null) {
   } catch { /* ignore */ }
 }
 
-export async function doyleSignIn(email: string, password: string, persist = true): Promise<DoyleAuth> {
+export async function doyleSignIn(email: string, password: string): Promise<DoyleAuth> {
   const resp = await doyleFetch('/auth/v1/token?grant_type=password', {
     method: 'POST',
     headers: { apikey: envKey, 'Content-Type': 'application/json' },
@@ -237,11 +238,11 @@ export async function doyleSignIn(email: string, password: string, persist = tru
     isAdmin,
     host: currentWorkingHost,
   };
-  if (persist) saveDoyleAuth(auth);
+  saveDoyleAuth(auth);
   return auth;
 }
 
-export async function ensureFreshDoyleAuth(auth: DoyleAuth, persist = true): Promise<DoyleAuth> {
+export async function ensureFreshDoyleAuth(auth: DoyleAuth): Promise<DoyleAuth> {
   if (auth.expiresAt - Date.now() > 90_000) return auth;
   const resp = await doyleFetch('/auth/v1/token?grant_type=refresh_token', {
     method: 'POST',
@@ -249,7 +250,7 @@ export async function ensureFreshDoyleAuth(auth: DoyleAuth, persist = true): Pro
     body: JSON.stringify({ refresh_token: auth.refreshToken }),
   }, 10000);
   if (!resp.ok) {
-    if (persist) saveDoyleAuth(null);
+    saveDoyleAuth(null);
     throw new Error('Сессия Дойла истекла — войдите заново');
   }
   const body = await resp.json() as Record<string, unknown>;
@@ -260,7 +261,7 @@ export async function ensureFreshDoyleAuth(auth: DoyleAuth, persist = true): Pro
     expiresAt: Date.now() + Number(body.expires_in || 3600) * 1000,
     host: currentWorkingHost,
   };
-  if (persist) saveDoyleAuth(next);
+  saveDoyleAuth(next);
   return next;
 }
 
@@ -290,9 +291,9 @@ const DOYLE_CLUB: Club = {
   accent: '#2BD98A',
 };
 
-export function doyleSessionOf(auth: DoyleAuth): Session {
+export function doyleSessionOf(identity: string): Session {
   return {
-    token: 'doyle-supabase:' + auth.email,
+    token: 'doyle-supabase:' + identity,
     club: DOYLE_CLUB,
     role: 'admin',
     table: null,
@@ -339,11 +340,23 @@ export async function loadDoyleSnapshot(
   rawAuth: DoyleAuth,
   selectedId: string | null,
   signal?: AbortSignal,
-  persist = true,
 ): Promise<{ auth: DoyleAuth; snapshot: Snapshot }> {
-  const auth = await ensureFreshDoyleAuth(rawAuth, persist);
-  const now = Date.now();
+  const auth = await ensureFreshDoyleAuth(rawAuth);
+  const snapshot = await mapDoyleSnapshot(selectedId, async resource => {
+    if (optionalDoyleResources.has(resource)) {
+      if (!auth.isAdmin) return [];
+      return restGet<unknown[]>(auth, doyleQueries[resource], signal).catch(() => []);
+    }
+    return restGet<unknown[]>(auth, doyleQueries[resource], signal);
+  });
+  return { auth, snapshot };
+}
 
+export async function mapDoyleSnapshot(
+  selectedId: string | null,
+  read: (resource: DoyleResource) => Promise<unknown[]>,
+): Promise<Snapshot> {
+  const now = Date.now();
   const [
     tournamentsRaw,
     roomsRaw,
@@ -356,26 +369,16 @@ export async function loadDoyleSnapshot(
     debtsRaw,
     broadcastsRaw,
   ] = await Promise.all([
-    restGet<DoyleTournamentRow[]>(auth, 'doyle_tournaments?select=id,name,entry_fee,status,slots,date,room_id,created_at&order=date.desc.nullslast,id.desc&limit=120', signal),
-    restGet<DoyleRoomRow[]>(auth, 'rooms?select=room_id,state,version,branch&limit=120', signal),
-    restGet<DoylePlayerRow[]>(auth, 'doyle_players?select=id,name,full_name,tg_id,tg_username,photo_url,points,games_played,ko_count,registered_at,marketing_consent,bio&order=name.asc&limit=2000', signal),
-    restGet<DoyleRegistrationRow[]>(auth, 'doyle_registrations?select=tournament_id,player_id,source,attendance,created_at&order=created_at.desc&limit=3000', signal),
-    restGet<DoyleResultRow[]>(auth, 'doyle_tournament_results?select=tournament_id,player_id,place,points,place_points,ko_count&limit=4000', signal),
-    auth.isAdmin
-      ? restGet<DoyleBlueprintRow[]>(auth, 'tournament_blueprints?select=id,name,start_stack,late_reg_until_level,default_buy_in,default_registered,enables_seating,levels,sort_order&order=sort_order.asc,id.asc', signal).catch(() => [])
-      : Promise.resolve([]),
-    auth.isAdmin
-      ? restGet<DoyleNoteRow[]>(auth, 'crm_player_notes?select=id,player_id,text,admin_email,created_at&order=created_at.desc&limit=500', signal).catch(() => [])
-      : Promise.resolve([]),
-    auth.isAdmin
-      ? restGet<DoyleTagRow[]>(auth, 'crm_player_tags?select=player_id,tag&limit=2000', signal).catch(() => [])
-      : Promise.resolve([]),
-    auth.isAdmin
-      ? restGet<DoyleDebtRow[]>(auth, 'crm_player_debts?select=id,player_id,amount,reason,tournament_id,tournament_name,method,settled_at,created_at&order=created_at.desc&limit=1000', signal).catch(() => [])
-      : Promise.resolve([]),
-    auth.isAdmin
-      ? restGet<DoyleBroadcastRow[]>(auth, 'crm_broadcasts?select=id,message,filter,recipient_count,sent_count,failed_count,status,created_at&order=created_at.desc&limit=80', signal).catch(() => [])
-      : Promise.resolve([]),
+    read('tournaments') as Promise<DoyleTournamentRow[]>,
+    read('rooms') as Promise<DoyleRoomRow[]>,
+    read('players') as Promise<DoylePlayerRow[]>,
+    read('registrations') as Promise<DoyleRegistrationRow[]>,
+    read('results') as Promise<DoyleResultRow[]>,
+    read('blueprints') as Promise<DoyleBlueprintRow[]>,
+    read('notes') as Promise<DoyleNoteRow[]>,
+    read('tags') as Promise<DoyleTagRow[]>,
+    read('debts') as Promise<DoyleDebtRow[]>,
+    read('broadcasts') as Promise<DoyleBroadcastRow[]>,
   ]);
 
   const roomsById = new Map(roomsRaw.map(r => [r.room_id, r]));
@@ -917,5 +920,5 @@ export async function loadDoyleSnapshot(
   // Заглушка чтобы не ругался tsc на неиспользуемую переменную, если понадобится позже
   void tournamentsByRoomId;
 
-  return { auth, snapshot };
+  return snapshot;
 }

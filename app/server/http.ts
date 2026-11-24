@@ -12,6 +12,7 @@ import { command, DomainError, snapshot } from './tournament.ts';
 import { publicSchedule } from './definitions.ts';
 import { onlineRegistration } from './registration.ts';
 import { paymentWorkbook } from './paymentWorkbook.ts';
+import { hasDoyleAccess, readDoyleRows } from './doyle.ts';
 
 const PORT = Number(process.env.PORT || 4181);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -142,6 +143,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
       session: ctx.session,
       memberships: ctx.memberships,
       defaultTournamentId: defaultTournament,
+      doyleAccess: hasDoyleAccess(ctx),
     });
   }
 
@@ -211,6 +213,10 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   // ── Защищённые эндпоинты кабинета клуба ────────────────────────────────────
   const ctx = await resolveSession(pg, rawSessionToken);
   if (!ctx) return sendJson(res, 401, { error: 'Требуется вход в кабинет' });
+
+  if (method === 'GET' && url.pathname === '/api/doyle/snapshot') {
+    return sendJson(res, 200, await readDoyleRows(ctx));
+  }
 
   if (method === 'POST' && url.pathname === '/api/auth/switch-club') {
     const body = await readJson(req);
