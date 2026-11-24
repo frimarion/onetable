@@ -421,7 +421,7 @@ export async function loadDoyleSnapshot(
     ? Math.max(0, Math.round((levelEndAt - now) / 1000))
     : Math.max(0, Number(stTimer.pauseRemainingSec ?? levelDuration) || levelDuration);
 
-  const buyIn = Number(stTournament.buyIn ?? tournamentRow?.entry_fee ?? defaultConfig.buyIn) || 0;
+  const buyIn = Number(stTournament.defaultBuyIn ?? stTournament.buyIn ?? tournamentRow?.entry_fee ?? defaultConfig.buyIn) || 0;
   const addonCost = Number(stTournament.addonCost ?? buyIn) || 0;
   const addonChips = Number(stTournament.addonChips ?? stTournament.startStack ?? 30000) || 30000;
   const config: Config = {
@@ -483,8 +483,10 @@ export async function loadDoyleSnapshot(
     const seat = status === 'active' ? seatByPlayerId.get(pid) : undefined;
     const addon = Boolean(raw.addon);
     const addonTier = addon ? Math.min(3, Math.max(1, Number(raw.addonTier ?? 1) || 1)) : 0;
-    const rateRaw = Number(raw.rate ?? raw.tariff ?? 100);
-    const rate = rateRaw === 0 || rateRaw === 50 ? rateRaw : 100;
+    const playerBuyIn = raw.buyIn == null ? buyIn : Math.max(0, Number(raw.buyIn) || 0);
+    const rate = buyIn > 0
+      ? (playerBuyIn === 0 ? 0 : playerBuyIn <= buyIn / 2 ? 50 : 100)
+      : 100;
     const bustOrder = Number(raw.bustOrder ?? 0) || 0;
     if (raw.place != null && Number(raw.place) > 0) placeFromRoom.set(pid, Number(raw.place));
 
@@ -620,52 +622,59 @@ export async function loadDoyleSnapshot(
     const room = t.room_id ? roomsById.get(t.room_id) : undefined;
     const st = (room?.state || {}) as Record<string, unknown>;
     const tMeta = (st.tournament || {}) as Record<string, unknown>;
-    const tBuyIn = Number(tMeta.buyIn ?? t.entry_fee ?? 0) || 0;
-    const tReentry = Number(tMeta.reentryFee ?? tBuyIn) || tBuyIn;
-    const tAddonCost = Number(tMeta.addonCost ?? tBuyIn) || 0;
+    // В Дойле базовый бай-ин лежит в tournament.defaultBuyIn (см. admin.html effectiveBuyIn),
+    // персональная скидка — в p.buyIn, число бесплатных входов — в p.freeEntries, бесплатный аддон — в p.addonFree.
+    const defaultBuyIn = Math.max(0, Number(tMeta.defaultBuyIn ?? tMeta.buyIn ?? t.entry_fee ?? 0) || 0);
+    const tAddonEnabled = Boolean(tMeta.addonEnabled);
+    const tAddonCost = tAddonEnabled ? Math.max(0, Number(tMeta.addonCost ?? 0) || 0) : 0;
     const tTime = toMs(t.date || t.created_at, now);
     const list = Array.isArray(st.players) ? (st.players as Record<string, unknown>[]) : [];
 
     list.forEach((raw, idx) => {
       if (!raw.present && !(Array.isArray(raw.payments) && raw.payments.length)) return;
       const pid = raw.player_id != null ? String(raw.player_id) : `manual-${idx}-${String(raw.name || 'player')}`;
-      const rateRaw = Number(raw.rate ?? raw.tariff ?? 100);
-      const rate = rateRaw === 0 || rateRaw === 50 ? rateRaw : 100;
-      const waivedEntry = Boolean(raw.freeEntry || raw.compEntry || rate === 0);
-      const entryAmount = Math.round(tBuyIn * rate / 100);
-      if (tBuyIn > 0 && raw.present) {
+      const playerBuyIn = raw.buyIn == null ? defaultBuyIn : Math.max(0, Number(raw.buyIn) || 0);
+      const reentries = Math.max(0, Number(raw.reentries ?? 0) || 0);
+      const totalEntries = 1 + reentries;
+      const freeEntriesRaw = raw.freeEntries != null
+        ? Number(raw.freeEntries)
+        : (raw.freeEntry || raw.compEntry ? 1 : 0);
+      const freeEntries = Math.max(0, Math.min(totalEntries, Number.isFinite(freeEntriesRaw) ? Math.floor(freeEntriesRaw) : 0));
+
+      if (raw.present && (playerBuyIn > 0 || freeEntries > 0)) {
         payments.push({
           id: syntheticPaymentId++,
           playerId: pid,
           tournamentId: String(t.id),
           tournamentName: t.name,
           time: tTime,
-          amount: entryAmount,
+          amount: playerBuyIn,
           kind: 'buyin',
           method: null,
-          waived: waivedEntry,
+          waived: freeEntries >= 1 || playerBuyIn === 0,
           collectedAtTournament: null,
         });
       }
-      const reentries = Math.max(0, Number(raw.reentries ?? 0) || 0);
       for (let r = 0; r < reentries; r++) {
-        if (tReentry > 0) {
+        const entryIndex = r + 2; // 1 = первый вход, 2..N = реэнтри
+        if (playerBuyIn > 0 || entryIndex <= freeEntries) {
           payments.push({
             id: syntheticPaymentId++,
             playerId: pid,
             tournamentId: String(t.id),
             tournamentName: t.name,
             time: tTime + (r + 1) * 1000,
-            amount: Math.round(tReentry * rate / 100),
+            amount: playerBuyIn,
             kind: 'reentry',
             method: null,
-            waived: false,
+            waived: entryIndex <= freeEntries || playerBuyIn === 0,
             collectedAtTournament: null,
           });
         }
       }
-      if (raw.addon && tAddonCost > 0) {
+      if (raw.addon && tAddonEnabled && tAddonCost > 0) {
         const tier = Math.min(3, Math.max(1, Number(raw.addonTier ?? 1) || 1));
+        const addonFree = Boolean(raw.addonFree || raw.freeAddon || raw.compAddon);
         payments.push({
           id: syntheticPaymentId++,
           playerId: pid,
@@ -675,7 +684,7 @@ export async function loadDoyleSnapshot(
           amount: tAddonCost * tier,
           kind: 'addon',
           method: null,
-          waived: Boolean(raw.freeAddon || raw.compAddon),
+          waived: addonFree,
           collectedAtTournament: null,
         });
       }
