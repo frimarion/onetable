@@ -13,9 +13,14 @@ export type ProdAuthState = {
 
 export async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, { credentials: 'same-origin', ...options });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error || 'Сервер недоступен');
-  return body;
+  const text = await response.text();
+  let body: Record<string, unknown> = {};
+  try { body = text ? (JSON.parse(text) as Record<string, unknown>) : {}; } catch { /* non-JSON proxy response */ }
+  if (!response.ok) {
+    if (response.status === 429) throw new Error(String(body.error || 'Слишком много попыток. Подождите минуту.'));
+    throw new Error(String(body.error || `Ошибка сервера (${response.status})`));
+  }
+  return body as T;
 }
 
 export function useOffice() {

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { ArrowLeft, CalendarPlus, Check, ChevronRight, Clock3, Copy, Database, ExternalLink, LayoutGrid, LogOut, Plus, ShieldCheck, Trophy, UserPlus, UsersRound, Wallet, X } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Check, ChevronRight, Clock3, Copy, Database, ExternalLink, Eye, EyeOff, LayoutGrid, LogOut, Plus, ShieldCheck, Trophy, UserPlus, UsersRound, Wallet, X } from 'lucide-react';
 import { useOffice } from './api';
 import { Brand, Heading, pad, Person, State, Timer, money, startLabel } from './widgets';
 import { Crm, Dialog, bustModal, type Modal } from './crm';
@@ -68,11 +68,17 @@ function ProdAuthScreen({ busy, onLogin, onAcceptInvite }: {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [err, setErr] = useState('');
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setErr('');
+    if (inviteToken && password !== confirmPassword) {
+      setErr('Пароли не совпадают');
+      return;
+    }
     try {
       if (inviteToken) await onAcceptInvite(inviteToken, name, password);
       else await onLogin(email, password);
@@ -84,12 +90,8 @@ function ProdAuthScreen({ busy, onLogin, onAcceptInvite }: {
   return <main className="standalone auth-screen">
     <div className="panel auth-card">
       <Brand />
-      <h1>{inviteToken ? 'Активация приглашения' : 'Вход в кабинет клуба'}</h1>
-      <p className="muted">
-        {inviteToken
-          ? 'Задайте имя и надёжный пароль (минимум 10 символов, буквы и цифры).'
-          : 'Доступ только по приглашению клуба. После входа откроется исключительно ваш клуб.'}
-      </p>
+      <h1>{inviteToken ? 'Активация доступа' : 'Вход в кабинет'}</h1>
+      {inviteToken && <p className="muted">Задайте имя и надёжный пароль (минимум 10 символов, буквы и цифры).</p>}
       {err && <p className="alert" role="alert">{err}</p>}
       <form className="admin-form" onSubmit={submit}>
         {inviteToken ? (
@@ -102,8 +104,22 @@ function ProdAuthScreen({ busy, onLogin, onAcceptInvite }: {
           </label>
         )}
         <label>{inviteToken ? 'Новый пароль' : 'Пароль'}
-          <input type="password" required minLength={inviteToken ? 10 : 1} autoComplete={inviteToken ? 'new-password' : 'current-password'} value={password} disabled={busy} onChange={e => setPassword(e.target.value)} />
+          <span className="password-field">
+            <input type={showPassword ? 'text' : 'password'} required minLength={inviteToken ? 10 : 1}
+              autoComplete={inviteToken ? 'new-password' : 'current-password'}
+              value={password} disabled={busy} onChange={e => setPassword(e.target.value)} />
+            <button type="button" className="password-toggle" aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+              title={showPassword ? 'Скрыть пароль' : 'Показать пароль'} onClick={() => setShowPassword(v => !v)}>
+              {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+            </button>
+          </span>
         </label>
+        {inviteToken && <label>Повторить пароль
+          <span className="password-field">
+            <input type={showPassword ? 'text' : 'password'} required minLength={10} autoComplete="new-password"
+              value={confirmPassword} disabled={busy} onChange={e => setConfirmPassword(e.target.value)} />
+          </span>
+        </label>}
         <button className="button primary wide" type="submit" disabled={busy}>
           {busy ? 'Подождите…' : inviteToken ? 'Активировать доступ' : 'Войти'}
         </button>
