@@ -10,6 +10,7 @@ import { command, DomainError, snapshot } from './server/tournament.ts';
 import { publicSchedule } from './server/definitions.ts';
 import { onlineRegistration } from './server/registration.ts';
 import { paymentWorkbook } from './server/paymentWorkbook.ts';
+import { notifyOfficeUpdate, subscribeToOfficeUpdates } from './server/officeUpdates.ts';
 
 async function readJson(req: IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -46,10 +47,18 @@ function localApi(): Plugin {
       const schedule = /^[/]api[/]public[/]clubs[/]([a-zA-Z0-9_-]+)[/]schedule$/.exec(url.pathname);
       if (req.method === 'GET' && schedule) return send(200, await publicSchedule(await (database ??= connect()), schedule[1]));
       const registration = /^[/]api[/]public[/]clubs[/]([a-zA-Z0-9_-]+)[/]tournaments[/]([a-zA-Z0-9_-]+)[/]registration$/.exec(url.pathname);
-      if (req.method === 'POST' && registration) return send(200, await onlineRegistration(await (database ??= connect()),
-        registration[1], registration[2], await readJson(req)));
+      if (req.method === 'POST' && registration) {
+        const [, clubId, id] = registration;
+        const input = await readJson(req);
+        const result = await onlineRegistration(await (database ??= connect()), clubId, id, input);
+        if (input.action !== 'status') notifyOfficeUpdate(clubId);
+        return send(200, result);
+      }
       const session = sessions.find(item => req.headers.authorization === 'Bearer ' + item.token);
       if (!session) return send(401, { error: 'Выберите профиль для входа' });
+      if (req.method === 'GET' && url.pathname === '/api/office/updates') {
+        return subscribeToOfficeUpdates(session.club.id, res);
+      }
       const match = /^[/]api[/]tournaments[/]([a-zA-Z0-9_-]+)([/](?:commands|payments\.xlsx))?$/.exec(url.pathname);
       const create = url.pathname === '/api/clubs/' + session.club.id + '/tournaments';
       if (!match && !create) return send(404, { error: 'Страница не найдена' });
@@ -72,7 +81,9 @@ function localApi(): Plugin {
         if (!payload?.action || typeof payload.id !== 'string' || !/^[a-zA-Z0-9_-]{8,80}$/.test(payload.id)) {
           throw new DomainError('Укажите идентификатор и действие', 400);
         }
-        return send(200, await command(db, session, id, payload.id, payload.action));
+        const result = await command(db, session, id, payload.id, payload.action);
+        notifyOfficeUpdate(session.club.id);
+        return send(200, result);
       }
       send(405, { error: 'Метод не поддерживается' });
     } catch (error) {

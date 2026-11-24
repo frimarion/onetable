@@ -56,6 +56,7 @@ export function useOffice() {
       ? prodAuth?.session
       : sessions.find(item => item.token === token);
   const activeToken = activeSession?.token ?? token;
+  const activeRole = activeSession?.role;
   const activeSessions = isDoyleLive && activeSession
     ? [activeSession]
     : prodMode && prodAuth
@@ -132,11 +133,20 @@ export function useOffice() {
   }, [path, token, activeToken, id, useLinkedDoyle]);
 
   useEffect(() => {
-    if (!activeSession) return;
+    if (!activeRole) return;
     let stopped = false;
+    let refreshQueued = false;
     let currentReq: AbortController | undefined;
+    let stream: AbortController | undefined;
+    let streamReady = false;
+    let lastStreamUpdate = 0;
+    const visible = () => activeRole === 'display' || !document.hidden;
     const tick = async () => {
-      if (currentReq || stopped) return;
+      if (stopped || !visible()) return;
+      if (currentReq) {
+        refreshQueued = true;
+        return;
+      }
       const controller = new AbortController();
       currentReq = controller;
       const timeout = window.setTimeout(() => controller.abort(), isDoyleLive ? 14000 : 8000);
@@ -146,21 +156,77 @@ export function useOffice() {
       } finally {
         window.clearTimeout(timeout);
         currentReq = undefined;
+        if (refreshQueued) {
+          refreshQueued = false;
+          void tick();
+        }
       }
     };
-    const wake = () => { if (activeSession.role === 'display' || !document.hidden) void tick(); };
-    void tick();
-    const timer = window.setInterval(wake, isDoyleLive ? 6000 : 2000);
+    const connect = async () => {
+      if (stopped || isDoyleLive || !id || stream || !visible()) return;
+      const controller = new AbortController();
+      stream = controller;
+      lastStreamUpdate = Date.now();
+      const headers: Record<string, string> = { Accept: 'text/event-stream' };
+      if (!prodMode) headers.Authorization = 'Bearer ' + token;
+      try {
+        const response = await fetch('/api/office/updates', { headers, signal: controller.signal });
+        if (!response.ok || !response.headers.get('Content-Type')?.startsWith('text/event-stream') || !response.body) {
+          await response.body?.cancel();
+          return;
+        }
+        const reader = response.body.getReader();
+        // The stream carries only refresh signals. Split or coalesced frames also trigger a refresh.
+        while (!(await reader.read()).done) {
+          streamReady = true;
+          lastStreamUpdate = Date.now();
+          void tick();
+        }
+      } catch { /* Poll while the stream is unavailable. */ }
+      finally {
+        stream = undefined;
+        streamReady = false;
+      }
+    };
+    const wake = () => {
+      void tick();
+      void connect();
+    };
+    wake();
+    const timer = window.setInterval(() => {
+      if (stream && Date.now() - lastStreamUpdate > 30_000) {
+        streamReady = false;
+        stream.abort();
+      }
+      if (!streamReady) wake();
+    }, isDoyleLive ? 6000 : prodMode ? 5000 : 2000);
     window.addEventListener('online', wake);
     document.addEventListener('visibilitychange', wake);
     return () => {
       stopped = true;
       currentReq?.abort();
+      stream?.abort();
       window.clearInterval(timer);
       window.removeEventListener('online', wake);
       document.removeEventListener('visibilitychange', wake);
     };
-  }, [activeSession?.token, isDoyleLive, prodMode, refresh]);
+  }, [activeRole, id, isDoyleLive, prodMode, refresh, token]);
+
+  const clock = data?.tournament.state === 'live' ? data.clock : undefined;
+  const clockEndsAt = clock?.startedAt == null ? undefined : clock.startedAt + clock.remaining * 1000;
+  const serverTime = data?.serverTime;
+  useEffect(() => {
+    if (isDoyleLive || clockEndsAt === undefined || serverTime === undefined || clockEndsAt <= serverTime) return;
+    const controller = new AbortController();
+    // The server advances the clock when the next snapshot is requested.
+    const timer = window.setTimeout(() => {
+      if (activeRole === 'display' || !document.hidden) void refresh(controller.signal).catch(() => {});
+    }, clockEndsAt - serverTime);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [activeRole, clockEndsAt, isDoyleLive, refresh, serverTime]);
 
   useEffect(() => {
     if (!authChecked || isDoyleLive || prodMode) return;

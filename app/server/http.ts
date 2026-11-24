@@ -13,6 +13,7 @@ import { publicSchedule } from './definitions.ts';
 import { onlineRegistration } from './registration.ts';
 import { paymentWorkbook } from './paymentWorkbook.ts';
 import { hasDoyleAccess, readDoyleRows } from './doyle.ts';
+import { notifyOfficeUpdate, subscribeToOfficeUpdates } from './officeUpdates.ts';
 
 const PORT = Number(process.env.PORT || 4181);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -199,7 +200,10 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   if (method === 'POST' && pubReg) {
     checkRateLimit('reg:' + ip, 30, 60_000);
     const [, clubId, tournamentId] = pubReg;
-    return sendJson(res, 200, await onlineRegistration(pg.forClub(clubId), clubId, tournamentId, await readJson(req)));
+    const input = await readJson(req);
+    const result = await onlineRegistration(pg.forClub(clubId), clubId, tournamentId, input);
+    if (input.action !== 'status') notifyOfficeUpdate(clubId);
+    return sendJson(res, 200, result);
   }
 
   // ── ТВ-дисплей по 256-битному токену (только чтение одного турнира) ────────
@@ -213,6 +217,10 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   // ── Защищённые эндпоинты кабинета клуба ────────────────────────────────────
   const ctx = await resolveSession(pg, rawSessionToken);
   if (!ctx) return sendJson(res, 401, { error: 'Требуется вход в кабинет' });
+
+  if (method === 'GET' && url.pathname === '/api/office/updates') {
+    return subscribeToOfficeUpdates(ctx.club.id, res);
+  }
 
   if (method === 'GET' && url.pathname === '/api/doyle/snapshot') {
     return sendJson(res, 200, await readDoyleRows(ctx));
@@ -270,7 +278,9 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     if (!action || typeof cmdId !== 'string' || !/^[a-zA-Z0-9_-]{8,80}$/.test(cmdId)) {
       throw new DomainError('Укажите идентификатор и действие', 400);
     }
-    return sendJson(res, 200, await command(clubDb, ctx.session, tournamentId, cmdId, action));
+    const result = await command(clubDb, ctx.session, tournamentId, cmdId, action);
+    notifyOfficeUpdate(ctx.club.id);
+    return sendJson(res, 200, result);
   }
 
   return sendJson(res, 405, { error: 'Метод не поддерживается' });
