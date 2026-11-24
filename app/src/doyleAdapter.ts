@@ -198,7 +198,7 @@ export function saveDoyleAuth(auth: DoyleAuth | null) {
   } catch { /* ignore */ }
 }
 
-export async function doyleSignIn(email: string, password: string): Promise<DoyleAuth> {
+export async function doyleSignIn(email: string, password: string, persist = true): Promise<DoyleAuth> {
   const resp = await doyleFetch('/auth/v1/token?grant_type=password', {
     method: 'POST',
     headers: { apikey: envKey, 'Content-Type': 'application/json' },
@@ -237,11 +237,11 @@ export async function doyleSignIn(email: string, password: string): Promise<Doyl
     isAdmin,
     host: currentWorkingHost,
   };
-  saveDoyleAuth(auth);
+  if (persist) saveDoyleAuth(auth);
   return auth;
 }
 
-export async function ensureFreshDoyleAuth(auth: DoyleAuth): Promise<DoyleAuth> {
+export async function ensureFreshDoyleAuth(auth: DoyleAuth, persist = true): Promise<DoyleAuth> {
   if (auth.expiresAt - Date.now() > 90_000) return auth;
   const resp = await doyleFetch('/auth/v1/token?grant_type=refresh_token', {
     method: 'POST',
@@ -249,7 +249,7 @@ export async function ensureFreshDoyleAuth(auth: DoyleAuth): Promise<DoyleAuth> 
     body: JSON.stringify({ refresh_token: auth.refreshToken }),
   }, 10000);
   if (!resp.ok) {
-    saveDoyleAuth(null);
+    if (persist) saveDoyleAuth(null);
     throw new Error('Сессия Дойла истекла — войдите заново');
   }
   const body = await resp.json() as Record<string, unknown>;
@@ -260,7 +260,7 @@ export async function ensureFreshDoyleAuth(auth: DoyleAuth): Promise<DoyleAuth> 
     expiresAt: Date.now() + Number(body.expires_in || 3600) * 1000,
     host: currentWorkingHost,
   };
-  saveDoyleAuth(next);
+  if (persist) saveDoyleAuth(next);
   return next;
 }
 
@@ -339,8 +339,9 @@ export async function loadDoyleSnapshot(
   rawAuth: DoyleAuth,
   selectedId: string | null,
   signal?: AbortSignal,
+  persist = true,
 ): Promise<{ auth: DoyleAuth; snapshot: Snapshot }> {
-  const auth = await ensureFreshDoyleAuth(rawAuth);
+  const auth = await ensureFreshDoyleAuth(rawAuth, persist);
   const now = Date.now();
 
   const [

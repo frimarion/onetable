@@ -24,7 +24,7 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
 }
 
 export function useOffice() {
-  const [doyleAuth, setDoyleAuth] = useState<DoyleAuth | null>(() => loadSavedDoyleAuth());
+  const [doyleAuth, setDoyleAuth] = useState<DoyleAuth | null>(null);
   const [prodMode, setProdMode] = useState(false);
   const [prodAuth, setProdAuth] = useState<ProdAuthState | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -37,12 +37,16 @@ export function useOffice() {
   const [busy, setBusy] = useState(false);
   const pending = useRef<{ key: string; id: string } | undefined>(undefined);
   const inFlight = useRef(false);
+  const oneTableTournament = useRef('');
   const doyleAuthRef = useRef<DoyleAuth | null>(doyleAuth);
   doyleAuthRef.current = doyleAuth;
   const prodModeRef = useRef(prodMode);
   prodModeRef.current = prodMode;
 
   const isDoyleLive = Boolean(doyleAuth);
+  const canConnectDoyle = !prodMode || (
+    prodAuth?.session.club.id === 'doyle' && (prodAuth.role === 'owner' || prodAuth.role === 'admin')
+  );
   const activeSession = doyleAuth
     ? doyleSessionOf(doyleAuth)
     : prodMode
@@ -67,12 +71,13 @@ export function useOffice() {
     const body = await resp.json();
     if (!resp.ok) throw new Error(body.error || 'Ошибка авторизации');
     setProdAuth(body as ProdAuthState);
-    if (body.defaultTournamentId) setId(body.defaultTournamentId);
+    const defaultId = typeof body.defaultTournamentId === 'string' ? body.defaultTournamentId : '';
+    oneTableTournament.current = defaultId;
+    setId(defaultId);
     setAuthChecked(true);
   }, []);
 
   const load = useCallback(() => {
-    if (doyleAuthRef.current) { setAuthChecked(true); return; }
     fetch('/api/demo', { credentials: 'same-origin' }).then(async resp => {
       if (resp.status === 404) {
         setProdMode(true);
@@ -82,6 +87,7 @@ export function useOffice() {
       const items = (await resp.json()) as Session[];
       if (!resp.ok) throw new Error('Сервер недоступен');
       setSessions(items);
+      setDoyleAuth(loadSavedDoyleAuth());
       setToken(current => items.some(item => item.token === current) ? current : 'doyle-admin');
       setAuthChecked(true);
     }).catch((reason: Error) => { setError(reason.message); setAuthChecked(true); });
@@ -91,7 +97,7 @@ export function useOffice() {
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const auth = doyleAuthRef.current;
     if (auth) {
-      const { auth: fresh, snapshot: next } = await loadDoyleSnapshot(auth, id || null, signal);
+      const { auth: fresh, snapshot: next } = await loadDoyleSnapshot(auth, id || null, signal, !prodModeRef.current);
       if (!signal?.aborted) {
         if (fresh.accessToken !== auth.accessToken) setDoyleAuth(fresh);
         const liveToken = doyleSessionOf(fresh).token;
@@ -101,7 +107,7 @@ export function useOffice() {
       }
       return;
     }
-    if (prodModeRef.current && (!id || id === 'doyle-main')) return;
+    if (prodModeRef.current && !id) return;
     const headers: Record<string, string> = prodModeRef.current ? {} : { Authorization: 'Bearer ' + token };
     const next = await request<Snapshot>(path, { headers, signal });
     if (!signal?.aborted) {
@@ -140,12 +146,12 @@ export function useOffice() {
       window.removeEventListener('online', wake);
       document.removeEventListener('visibilitychange', wake);
     };
-  }, [activeSession?.token, isDoyleLive, refresh]);
+  }, [activeSession?.token, isDoyleLive, prodMode, refresh]);
 
   useEffect(() => {
-    if (isDoyleLive || prodMode) return;
+    if (!authChecked || isDoyleLive || prodMode) return;
     history.replaceState(null, '', '#' + new URLSearchParams({ session: token, tournament: id }));
-  }, [token, id, isDoyleLive, prodMode]);
+  }, [token, id, isDoyleLive, prodMode, authChecked]);
 
   useEffect(() => {
     if (!notice) return;
@@ -185,29 +191,29 @@ export function useOffice() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   async function connectDoyle(email: string, password: string) {
+    if (!canConnectDoyle || inFlight.current) throw new Error('Подключение доступно администраторам клуба Doyle');
     setBusy(true);
     setError('');
     try {
-      const auth = await doyleSignIn(email, password);
+      const auth = await doyleSignIn(email, password, !prodMode);
+      if (prodMode) oneTableTournament.current = id;
       setDoyleAuth(auth);
       setId('');
       setSnapshot(undefined);
-      setNotice('Подключено к базе Дойла (безопасный режим просмотра)');
+      setNotice('Данные Doyle открыты в режиме просмотра');
     } finally {
       setBusy(false);
     }
   }
   function disconnectDoyle() {
+    if (inFlight.current) return;
     saveDoyleAuth(null);
     setDoyleAuth(null);
     setSnapshot(undefined);
-    setId('doyle-main');
-    setToken('doyle-admin');
+    setId(prodMode ? oneTableTournament.current : 'doyle-main');
     setError('');
-    setNotice('Переключено на локальное демо');
-    request<Session[]>('/api/demo').then(items => {
-      setSessions(items);
-    }).catch((reason: Error) => setError(reason.message));
+    setNotice(prodMode ? 'Открыт кабинет OneTable' : 'Переключено на локальное демо');
+    if (!prodMode) setToken('doyle-admin');
   }
   async function prodLogin(email: string, password: string) {
     setBusy(true);
@@ -241,6 +247,7 @@ export function useOffice() {
   async function prodLogout() {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
     setProdAuth(null);
+    setDoyleAuth(null);
     setSnapshot(undefined);
     setNotice('');
   }
@@ -254,7 +261,7 @@ export function useOffice() {
   }
   const run: Run = async (action, after) => {
     if (doyleAuthRef.current) {
-      setNotice('Безопасный режим просмотра Дойла: изменения не отправляются в боевую базу');
+      setNotice('Данные Doyle открыты в режиме просмотра');
       return;
     }
     if (inFlight.current) return;
@@ -303,6 +310,7 @@ export function useOffice() {
     run,
     exportPayments,
     doyleAuth,
+    canConnectDoyle,
     connectDoyle,
     disconnectDoyle,
     prodMode,

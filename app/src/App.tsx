@@ -15,12 +15,13 @@ import { scheduleHref } from './PublicSchedule';
 
 type View = 'live' | 'crm' | 'rating' | 'finance' | 'tournaments' | 'create' | 'edit' | 'week';
 
-function DoyleConnectDialog({ busy, onConnect, onClose }: {
+function DoyleConnectDialog({ busy, initialEmail, onConnect, onClose }: {
   busy: boolean;
+  initialEmail: string;
   onConnect: (email: string, password: string) => Promise<void>;
   onClose: () => void;
 }) {
-  const [email, setEmail] = useState('alexander@doyle.ru');
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   async function submit(event: FormEvent) {
@@ -40,14 +41,14 @@ function DoyleConnectDialog({ busy, onConnect, onClose }: {
         <button className="button icon" aria-label="Закрыть" onClick={onClose}><X size={18} /></button>
       </div>
       <div className="dialog-body">
-        <p className="muted">Войдите под админской учётной записью Supabase Дойла. Кабинет откроется в <strong>безопасном режиме просмотра</strong>: турниры, игроки с аватарками, оплаты, результаты, CRM и «Финансы» подтянутся вживую, но никакие изменения в боевую базу отправляться не будут.</p>
+        <p className="muted">Войдите с учётной записью админки Doyle, чтобы открыть турниры, результаты, игроков и CRM в режиме просмотра.</p>
         {err && <p className="alert" role="alert">{err}</p>}
         <form className="admin-form" onSubmit={submit}>
           <label>Email администратора
-            <input type="email" required autoFocus value={email} disabled={busy} onChange={event => setEmail(event.target.value)} placeholder="alexander@doyle.ru" />
+            <input type="email" autoComplete="username" required autoFocus value={email} disabled={busy} onChange={event => setEmail(event.target.value)} />
           </label>
           <label>Пароль
-            <input type="password" required value={password} disabled={busy} onChange={event => setPassword(event.target.value)} placeholder="Пароль от админки Дойла" />
+            <input type="password" autoComplete="current-password" required value={password} disabled={busy} onChange={event => setPassword(event.target.value)} />
           </label>
           <div className="actions">
             <button className="button primary" type="submit" disabled={busy}>{busy ? 'Подключаем…' : 'Подключить'}</button>
@@ -194,7 +195,7 @@ export function App() {
   const office = useOffice();
   const {
     session, data, busy, error, notice, setNotice, sessions, run, select, external,
-    doyleAuth, connectDoyle, disconnectDoyle,
+    doyleAuth, canConnectDoyle, connectDoyle, disconnectDoyle,
     prodMode, prodAuth, authChecked, prodLogin, prodAcceptInvite, prodLogout, prodInvite,
   } = office;
   const [view, setView] = useState<View>('live');
@@ -203,6 +204,17 @@ export function App() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const open = (next: Modal) => { setNotice(''); setModal(next); };
   const admin = sessions.find(item => item.role === 'admin' && item.club.id === session?.club.id);
+  const connectDialog = connectOpen && canConnectDoyle && <DoyleConnectDialog
+    busy={busy} initialEmail={prodAuth?.user.email ?? ''} onConnect={async (email, password) => {
+      await connectDoyle(email, password);
+      setView('tournaments');
+      setModal(undefined);
+    }} onClose={() => setConnectOpen(false)} />;
+  function returnToOneTable() {
+    disconnectDoyle();
+    setView('tournaments');
+    setModal(undefined);
+  }
 
   if (prodMode && authChecked && !prodAuth) {
     return <ProdAuthScreen busy={busy} onLogin={prodLogin} onAcceptInvite={prodAcceptInvite} />;
@@ -210,11 +222,13 @@ export function App() {
 
   if (!session || !data) {
     return <main className="standalone"><Brand /><h1>{error ? 'Не удалось открыть кабинет' : doyleAuth ? 'Загружаем данные Дойла…' : 'Загружаем кабинет'}</h1>
+      {doyleAuth && <button className="button" onClick={returnToOneTable}>{prodMode ? 'Вернуться в OneTable' : 'Вернуться в демо'}</button>}
+      {!doyleAuth && prodAuth && canConnectDoyle && <button className="button" onClick={() => setConnectOpen(true)}><Database size={14} /> Подключить Дойл</button>}
       {error && <><p>{error}</p><div className="actions">
-        {doyleAuth && <button className="button primary" onClick={disconnectDoyle}>Вернуться в демо</button>}
         {prodMode && prodAuth && <button className="button" onClick={() => void prodLogout()}>Выйти</button>}
         <button className="button" onClick={() => { if (sessions.length) location.assign(location.pathname); else office.load(); }}>Повторить</button>
       </div></>}
+      {connectDialog}
     </main>;
   }
   if (session.role === 'display') return <Display key={data.tournament.id} data={data} error={error} />;
@@ -233,7 +247,7 @@ export function App() {
       <div className="top-right">
         {doyleAuth
           ? <span className="state live" title={`Подключено к ${doyleAuth.host || 'Supabase Дойла'} (только чтение)`}><ShieldCheck size={14} /> Дойл · просмотр</span>
-          : !prodMode && <button className="button compact" type="button" onClick={() => setConnectOpen(true)}><Database size={14} /> Подключить Дойл</button>}
+          : canConnectDoyle && <button className="button compact" type="button" onClick={() => setConnectOpen(true)}><Database size={14} /> Подключить Дойл</button>}
         <ThemeSwitch />
         {dealer ? <button className="button" onClick={() => admin && select(admin)}><ArrowLeft size={16} /> Кабинет</button> :
           <span className="profile"><span className="avatar">{(prodAuth?.user.name?.[0] || prodAuth?.user.email?.[0] || doyleAuth?.email?.[0] || 'А').toUpperCase()}</span><span>{prodAuth ? (prodAuth.user.name || prodAuth.user.email) : doyleAuth ? doyleAuth.email : 'Администратор'}</span></span>}
@@ -254,18 +268,18 @@ export function App() {
         <button disabled={busy} className={screen === 'crm' ? 'selected' : ''} onClick={() => setView('crm')}><UsersRound size={18} /> CRM клуба</button>
       </nav>
       <div className="sidebar-bottom">
-        {prodMode && prodAuth ? (
+        {doyleAuth ? (
+          <div className="sidebar-conn">
+            <div><strong>Doyle · Supabase</strong><small>Режим просмотра</small></div>
+            <button className="button compact wide" type="button" onClick={returnToOneTable}><ArrowLeft size={14} /> {prodMode ? 'Вернуться в OneTable' : 'Выйти в демо'}</button>
+          </div>
+        ) : prodMode && prodAuth ? (
           <div className="sidebar-conn">
             <div><strong>{session.club.name}</strong><small>{prodAuth.user.email}</small></div>
             {prodAuth.role === 'owner' && (
               <button className="button compact wide" type="button" onClick={() => setInviteOpen(true)}><UserPlus size={14} /> Пригласить</button>
             )}
             <button className="button compact wide" type="button" onClick={() => void prodLogout()}><LogOut size={14} /> Выйти</button>
-          </div>
-        ) : doyleAuth ? (
-          <div className="sidebar-conn">
-            <div><strong>Doyle · Supabase</strong><small>Режим просмотра</small></div>
-            <button className="button compact wide" type="button" onClick={disconnectDoyle}><LogOut size={14} /> Выйти в демо</button>
           </div>
         ) : (
           <div className="sidebar-conn">
@@ -278,7 +292,7 @@ export function App() {
     <main className="sheet">
       {error && <p className="alert" role="status">Связь прервана. Показано последнее состояние.</p>}
       {screen === 'tournaments' && <>
-        <Heading title="Турниры" subtitle={data.club.venue} actions={<>
+        <Heading title="Турниры" subtitle={data.club.venue} actions={doyleAuth ? <button className="button" onClick={returnToOneTable}><ArrowLeft size={15} /> {prodMode ? 'Вернуться в OneTable' : 'Выйти в демо'}</button> : <>
           <a className="button" href={scheduleHref(data.club.id)} target="_blank" rel="noreferrer">Расписание клуба <ExternalLink size={15} /></a>
           <button className="button" disabled={busy} onClick={() => { setNotice(''); setView('week'); }}><CalendarPlus size={17} /> Создать неделю</button>
           <button className="button primary" disabled={busy} onClick={() => { setNotice(''); setView('create'); }}><Plus size={17} /> Создать турнир</button>
@@ -329,7 +343,7 @@ export function App() {
       { label: 'CRM', Icon: UsersRound, action: () => navigate('crm'), active: screen === 'crm' },
     ]} />}
     {modal && <Dialog modal={modal} data={data} run={run} close={() => setModal(undefined)} busy={busy} notice={notice} change={open} />}
-    {connectOpen && <DoyleConnectDialog busy={busy} onConnect={connectDoyle} onClose={() => setConnectOpen(false)} />}
+    {connectDialog}
     {inviteOpen && <InviteMemberDialog onInvite={prodInvite} onClose={() => setInviteOpen(false)} />}
     {notice && !modal && <div className="toast" role="status">{notice}<button aria-label="Скрыть сообщение" onClick={() => setNotice('')}><X size={17} /></button></div>}
   </div>;
