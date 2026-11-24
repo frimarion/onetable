@@ -13,7 +13,7 @@ type QueueCommand = Extract<Command, { type: 'setWaitlistArrival' | 'admitWaitli
 const openForRegistration = (row: StateRow) => row.state === 'scheduled' ||
   (row.state === 'live' && registrationOpen(configOf(row), structureOf(row), row.level));
 
-async function availability(tx: Transaction, row: StateRow) {
+export async function registrationAvailability(tx: Transaction, row: StateRow) {
   const config = configOf(row);
   const { rows: [counts] } = await tx.query<{ reserved: number; unseated: number; capacity: number }>(
     `SELECT count(*) FILTER (WHERE queued_at IS NULL AND status<>'out')::int AS reserved,
@@ -31,7 +31,7 @@ export async function waitlist(tx: Transaction, row: StateRow): Promise<Waitlist
   if (!people.length) return { people, canAdmit: false };
   if (!openForRegistration(row)) return { people, canAdmit: false, blocked: 'closed' };
   if (row.state === 'live' && !people.some(person => person.arrived)) return { people, canAdmit: false, blocked: 'arrival' };
-  const { full, unseated } = await availability(tx, row);
+  const { full, unseated } = await registrationAvailability(tx, row);
   if (full) return { people, canAdmit: false, blocked: 'full' };
   if (row.state === 'live' && configOf(row).seating && unseated > 0) return { people, canAdmit: false, blocked: 'unseated' };
   return { people, canAdmit: true };
@@ -105,7 +105,7 @@ export async function onlineRegistration(db: PGlite, clubId: string, id: string,
     const now = Date.now();
     await refreshClock(tx, row, now);
     const open = openForRegistration(row);
-    let { full } = await availability(tx, row);
+    let { full } = await registrationAvailability(tx, row);
     const { rows: people } = await tx.query<{ playerId: string }>(
       'SELECT player_id AS "playerId" FROM entries WHERE tournament_id=$1 AND queued_at IS NOT NULL ORDER BY queued_at,player_id', [id]);
     let { rows: [player] } = await tx.query<{ id: string; name: string }>(
@@ -143,7 +143,7 @@ export async function onlineRegistration(db: PGlite, clubId: string, id: string,
     if (label) {
       await tx.query('UPDATE tournaments SET revision=revision+1 WHERE id=$1', [id]);
       await tx.query("INSERT INTO journal (tournament_id,label,actor,time) VALUES ($1,$2,'Онлайн-запись',$3)", [id, label, now]);
-      ({ full } = await availability(tx, row));
+      ({ full } = await registrationAvailability(tx, row));
     }
     return { open, full: full || people.some(person => action !== 'cancel' || person.playerId !== player?.id), state, position };
   });

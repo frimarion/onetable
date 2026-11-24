@@ -1,8 +1,9 @@
+import type { MemberRole } from './access.ts';
 import { formats, type CashCommand, type Config, type DisplaySettings, type Level, type MoneyMethod, type OperationsCommand, type Preset, type ManualStats, type Result } from './operations.ts';
 import type { RatingPreset } from './rating.ts';
 import type { CrmCommand, CrmData, PipelineStage } from './crm.ts';
 
-export type Role = 'admin' | 'dealer' | 'display';
+export type Role = 'admin' | 'floor' | 'dealer' | 'display';
 export type Status = 'registered' | 'active' | 'out';
 export type PlayerIdentity = { name: string; nickname: string; photoUrl?: string | null };
 export type Player = PlayerIdentity & {
@@ -54,17 +55,20 @@ export type Waitlist = {
   canAdmit: boolean;
   blocked?: 'closed' | 'arrival' | 'full' | 'unseated';
 };
-export type Session = { token: string; club: Club; role: Role; table: number | null };
+export type Session = { token: string; club: Club; role: Role; table: number | null; memberRole?: MemberRole };
 export type Snapshot = {
   tournament: Tournament; schedule: Tournament[]; club: Club; role: Role;
   revision: number; serverTime: number; clock: Clock; stats: { registered: number; active: number; seated: number; reentries: number; entered: number; addons: number; addonChips: number };
   waitlist: Waitlist;
+  tvPayouts?: number[];
+  dealerQueue?: ({ playerId: string } & PlayerIdentity)[];
   structure: Level[]; presets: Preset[]; ratingPresets: RatingPreset[]; manualStats: ManualStats; config: Config; display: DisplaySettings; results: Result[]; tables: Table[]; entries: Entry[]; roster: Player[]; visits: Visit[]; payments: Payment[]; journal: JournalItem[]; crm: CrmData;
 };
 export type Command =
   | OperationsCommand | CashCommand | CrmCommand
   | { type: 'register' | 'checkIn' | 'checkOut' | 'confirmSeat' | 'reenter'; playerId: string }
   | { type: 'bust'; playerId: string; knockouts?: number }
+  | ({ type: 'dealerSeat'; seatNo: number } & ({ playerId: string } | { name: string }))
   | { type: 'assign'; playerId: string; tableNo: number; seatNo: number }
   | { type: 'addPlayer'; name: string; nickname?: string; source: string; note: string; tags: string; phone?: string; telegram?: string; instagram?: string; telegramConsent?: boolean; stage?: PipelineStage; owner?: string; enroll?: boolean }
   | { type: 'payment'; playerId: string; amount: number; method?: MoneyMethod }

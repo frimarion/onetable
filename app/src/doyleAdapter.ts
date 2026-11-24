@@ -415,11 +415,18 @@ export async function mapDoyleSnapshot(
   const stTimer = (activeState.timer || {}) as Record<string, unknown>;
   const stStructure = (activeState.structure || {}) as Record<string, unknown>;
   const stSeating = (activeState.seating || {}) as Record<string, unknown>;
+  const stRating = (activeState.rating || {}) as Record<string, unknown>;
+  const stInfo = (activeState.info || {}) as Record<string, unknown>;
+  const tvPayouts = stRating.isActive && Array.isArray(stRating.payouts)
+    ? stRating.payouts.map(points => Math.max(0, Number(points) || 0)) : undefined;
 
   const structure = mapLevels(stStructure.levels);
   const levelIndex = Math.min(Math.max(0, Number(stTimer.levelIndex ?? 0) || 0), structure.length - 1);
   const levelDuration = structure[levelIndex]?.duration ?? 1200;
   const levelEndAt = Number(stTimer.levelEndAt ?? 0);
+  const breakUntil = Number(stTimer.breakUntil);
+  const onBreak = Number.isFinite(breakUntil) && breakUntil > now;
+  const breakRemaining = onBreak ? Math.ceil((breakUntil - now) / 1000) : 0;
   const isRunning = Boolean(stTimer.isRunning && !stTimer.isPaused && Number.isFinite(levelEndAt) && levelEndAt > 0);
   const remaining = isRunning
     ? Math.max(0, Math.round((levelEndAt - now) / 1000))
@@ -439,6 +446,8 @@ export async function mapDoyleSnapshot(
     addonCost,
     addonChips,
     knockout: Boolean(stTournament.pko),
+    comment: typeof stInfo.comment === 'string' ? stInfo.comment : '',
+    bonusHand: typeof stInfo.bonusHand === 'string' ? stInfo.bonusHand : '',
     registrationLimit: tournamentRow?.slots ?? 0,
     seating: Boolean(stSeating.isActive),
     rating: {
@@ -886,10 +895,10 @@ export async function mapDoyleSnapshot(
     serverTime: now,
     clock: {
       level: levelIndex,
-      remaining,
-      startedAt: isRunning ? now : null,
-      duration: levelDuration,
-      manualBreak: Boolean(stTimer.breakUntil && Number(stTimer.breakUntil) > now),
+      remaining: onBreak ? breakRemaining : remaining,
+      startedAt: onBreak || isRunning ? now : null,
+      duration: onBreak ? Math.max(breakRemaining, defaultConfig.manualBreakMinutes * 60) : levelDuration,
+      manualBreak: onBreak,
     },
     stats: {
       registered: entries.length,
@@ -906,7 +915,13 @@ export async function mapDoyleSnapshot(
     ratingPresets: baseRatingPresets,
     manualStats: { entered: 0, reentries: 0, out: 0 },
     config,
-    display: { ...defaultDisplay, finalTable: Boolean((activeState.finalTable as Record<string, unknown> | undefined)?.isActive) },
+    display: {
+      ...defaultDisplay,
+      mode: stSeating.isActive ? 'seating' : 'clock',
+      finalTable: Boolean(stTimer.finalTableActive || Number(stTimer.finalTableUntil) > now ||
+        (activeState.finalTable as Record<string, unknown> | undefined)?.isActive),
+    },
+    tvPayouts,
     results,
     tables,
     entries,

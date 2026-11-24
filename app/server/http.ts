@@ -4,9 +4,9 @@ import { extname, join, normalize, resolve } from 'node:path';
 import type { Command } from '../shared/model.ts';
 import { PgAdapter } from './pgAdapter.ts';
 import {
-  acceptInvite, createInvite, issueTvToken, loginWithPassword, logoutSession,
+  acceptInvite, clubAccounts, createInvite, issueTvToken, loginWithPassword, logoutSession, removeClubAccess,
   parseCookies, resolveSession, resolveTvToken, SESSION_COOKIE, sessionCookieHeader,
-  switchSessionClub, type MemberRole,
+  switchSessionClub,
 } from './auth.ts';
 import { command, DomainError, snapshot } from './tournament.ts';
 import { publicSchedule } from './definitions.ts';
@@ -133,9 +133,9 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     const ctx = await resolveSession(pg, rawSessionToken);
     if (!ctx) return sendJson(res, 401, { error: 'Требуется вход' });
     const defaultTournament = (await pg.forClub(ctx.club.id).query<{ id: string }>(
-      `SELECT id FROM tournaments WHERE club_id=$1
+      `SELECT id FROM tournaments WHERE club_id=$1 AND ($2::boolean OR state<>'draft')
        ORDER BY CASE state WHEN 'live' THEN 0 WHEN 'scheduled' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, starts_at NULLS LAST, id LIMIT 1`,
-      [ctx.club.id],
+      [ctx.club.id, ctx.session.role === 'admin'],
     )).rows[0]?.id ?? null;
     return sendJson(res, 200, {
       user: ctx.user,
@@ -232,9 +232,20 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     return sendJson(res, 200, { ok: true });
   }
 
+  if (method === 'GET' && url.pathname === '/api/auth/accounts') {
+    return sendJson(res, 200, await clubAccounts(pg, ctx));
+  }
+  if (method === 'DELETE' && url.pathname === '/api/auth/accounts') {
+    const body = await readJson(req);
+    const target = typeof body.id === 'string' && body.id ? { id: body.id }
+      : typeof body.email === 'string' && body.email.trim() ? { email: body.email } : null;
+    if (!target) throw new DomainError('Выберите учётную запись или приглашение', 400);
+    await removeClubAccess(pg, ctx, target, ip);
+    return sendJson(res, 200, { ok: true });
+  }
   if (method === 'POST' && url.pathname === '/api/auth/invites') {
     const body = await readJson(req);
-    const invite = await createInvite(pg, ctx, String(body.email || ''), body.role as MemberRole, ip);
+    const invite = await createInvite(pg, ctx, String(body.email || ''), body.role, body.tableNo, ip);
     return sendJson(res, 200, invite);
   }
 
@@ -254,7 +265,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   const tournamentId = tMatch?.[1] ?? null;
 
   if (method === 'GET' && tournamentId && tMatch?.[2] === '/payments.xlsx') {
-    if (ctx.memberRole !== 'owner' && ctx.memberRole !== 'admin') {
+    if (ctx.memberRole !== 'owner') {
       throw new DomainError('Нет доступа к финансовому отчёту', 403);
     }
     const data = await snapshot(clubDb, ctx.session, tournamentId);

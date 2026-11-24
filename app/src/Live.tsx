@@ -37,10 +37,10 @@ function plural(count: number, one: string, few: string, many: string) {
   return many;
 }
 
-export function Live({ data, busy, run, external, open, back, edit, crm, exportPayments }: {
+export function Live({ data, busy, run, external, open, back, edit, crm, exportPayments, finances, nativeDealer }: {
   data: Snapshot; busy: boolean; run: Run; external: (role: 'dealer' | 'display', table?: number) => void;
   open: (modal: Modal) => void; back: () => void; edit: () => void; crm: () => void;
-  exportPayments: () => Promise<void>;
+  exportPayments: () => Promise<void>; finances: boolean; nativeDealer: boolean;
 }) {
   const seating = data.config.seating;
   const [selectedTab, setTab] = useState<Tab>(() => seating && !window.matchMedia(phone).matches ? 'tables' : 'players');
@@ -50,7 +50,7 @@ export function Live({ data, busy, run, external, open, back, edit, crm, exportP
   const [mobileTimer, setMobileTimer] = useState(false);
   const [more, setMore] = useState(false);
   const closeMore = useCallback(() => setMore(false), []);
-  const tab = !seating && selectedTab === 'tables' ? 'players' : selectedTab;
+  const tab = (!seating && selectedTab === 'tables') || (!finances && selectedTab === 'payments') ? 'players' : selectedTab;
   const [table, setTable] = useState<number | null>(null);
   const [seatDrag, setSeatDrag] = useState<SeatDrag | null>(null);
   const dragRef = useRef<SeatDrag | null>(null);
@@ -223,7 +223,7 @@ export function Live({ data, busy, run, external, open, back, edit, crm, exportP
       </>} />
     </div>
     <div className="tabs live-tabs" aria-label="Управление турниром">
-      {([['tables', 'Столы и рассадка'], ['players', 'Игроки'], ['payments', 'Оплаты'], ['settings', 'Настройки'], ['results', 'Результаты'], ['journal', 'Журнал']] as const).filter(([key]) => seating || key !== 'tables').map(([key, label]) =>
+      {([['tables', 'Столы и рассадка'], ['players', 'Игроки'], ['payments', 'Оплаты'], ['settings', 'Настройки'], ['results', 'Результаты'], ['journal', 'Журнал']] as const).filter(([key]) => (seating || key !== 'tables') && (finances || key !== 'payments')).map(([key, label]) =>
         <button key={key} aria-pressed={tab === key} onClick={() => selectTab(key)}>{label}{key === 'players' && <span>{data.stats.registered}</span>}</button>)}
     </div>
     {tab !== 'payments' && <button className="button narrow-timer" onClick={() => {
@@ -287,7 +287,7 @@ export function Live({ data, busy, run, external, open, back, edit, crm, exportP
             </span>
           </div>}
           {table !== null && data.tables.some(item => item.number === table) && <section className="panel roster">
-            <div className="panel-head"><h3>Стол {pad(table)}</h3><button className="button compact" onClick={() => external('dealer', table)}>Планшет дилера <ArrowRight size={15} /></button></div>
+            <div className="panel-head"><h3>Стол {pad(table)}</h3>{!nativeDealer && <button className="button compact" onClick={() => external('dealer', table)}>Планшет дилера <ArrowRight size={15} /></button>}</div>
             <EntryList entries={data.entries.filter(entry => entry.tableNo === table).sort((a, b) => a.seatNo! - b.seatNo!)}
               empty="Стол свободен" onSelect={entry => open({ mode: 'entry', entry })} />
           </section>}
@@ -298,7 +298,7 @@ export function Live({ data, busy, run, external, open, back, edit, crm, exportP
           </section>}
         </section>}
         {tab === 'players' && <Players data={data} busy={busy} run={run} open={open} />}
-        {tab === 'payments' && <Finance data={data} open={open} run={run} busy={busy} exportPayments={exportPayments} />}
+        {finances && tab === 'payments' && <Finance data={data} open={open} run={run} busy={busy} exportPayments={exportPayments} />}
         {tab === 'settings' && <Settings data={data} busy={busy} run={run} />}
         {tab === 'results' && <ResultsPanel data={data} busy={busy} run={run} open={open} />}
         {tab === 'journal' && <section><div className="section-head"><h2>Журнал турнира</h2></div><div className="panel"><Journal data={data} /></div></section>}
@@ -316,7 +316,7 @@ export function Live({ data, busy, run, external, open, back, edit, crm, exportP
       { label: 'Турниры', Icon: CalendarDays, action: back },
       { label: 'Игроки', Icon: UsersRound, action: () => selectTab('players'), active: !mobileTimer && tab === 'players' },
       { label: 'Таймер', Icon: Clock3, action: showTimer, active: mobileTimer },
-      { label: 'Оплаты', Icon: Wallet, action: () => selectTab('payments'), active: !mobileTimer && tab === 'payments' },
+      ...(finances ? [{ label: 'Оплаты', Icon: Wallet, action: () => selectTab('payments'), active: !mobileTimer && tab === 'payments' }] : []),
       { label: 'Ещё', Icon: Ellipsis, action: () => setMore(true), active: !mobileTimer && tab !== 'players' && tab !== 'payments', expanded: more },
     ]} />
     {more && <MobileSections close={closeMore}>

@@ -48,11 +48,13 @@ CREATE TABLE IF NOT EXISTS club_invites (
   club_id      text NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
   email        text NOT NULL,
   role         text NOT NULL CHECK (role IN ('owner', 'admin', 'floor', 'dealer')),
+  table_no     integer CHECK (table_no IS NULL OR table_no > 0),
   invited_by   text REFERENCES users(id) ON DELETE SET NULL,
   created_at   bigint NOT NULL,
   expires_at   bigint NOT NULL,
   accepted_at  bigint
 );
+ALTER TABLE club_invites ADD COLUMN IF NOT EXISTS table_no integer CHECK (table_no IS NULL OR table_no > 0);
 CREATE INDEX IF NOT EXISTS idx_club_invites_club ON club_invites (club_id);
 
 -- 256-битные токены только-на-чтение для ТВ-дисплея конкретного турнира.

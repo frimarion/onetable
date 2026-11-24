@@ -9,7 +9,7 @@ import { RatingSummary } from './RatingBuilder';
 import { Person, SearchBox, Timer, format } from './widgets';
 import { matchesQuery } from '../shared/search';
 
-export function TimerControls({ data, busy, run, open }: { data: Snapshot; busy: boolean; run: Run; open: (modal: Modal) => void }) {
+export function TimerControls({ data, busy, run, open, floor = false }: { data: Snapshot; busy: boolean; run: Run; open: (modal: Modal) => void; floor?: boolean }) {
   const tournament = data.tournament;
   const live = tournament.state === 'live';
   const { clock, revision } = data;
@@ -31,7 +31,7 @@ export function TimerControls({ data, busy, run, open }: { data: Snapshot; busy:
       </div>
     </>}
     {tournament.state === 'scheduled' && <button className="button primary wide" disabled={busy} onClick={() => run({ type: 'start' })}><Play size={16} /> Открыть турнир</button>}
-    <details className="screen-controls">
+    {!floor && <details className="screen-controls">
       <summary>Управление дисплеем</summary>
       <div className="screen-controls-body">
         <label className="inline-field">Режим ТВ<select value={data.display.mode} disabled={busy} onChange={event => run({ type: 'displayMode', mode: event.target.value as Snapshot['display']['mode'] })}>
@@ -41,13 +41,13 @@ export function TimerControls({ data, busy, run, open }: { data: Snapshot; busy:
           <button className="button compact" disabled={busy} aria-pressed={data.display.finalTable} onClick={() => run({ type: 'toggleFinalTable' })}><Trophy size={15} /> Финальный стол{data.display.finalTable ? ' · вкл' : ''}</button>
         </div>
       </div>
-    </details>
+    </details>}
     {live && <details className="screen-controls">
-      <summary>Сброс и завершение</summary>
+      <summary>{floor ? 'Сброс таймера' : 'Сброс и завершение'}</summary>
       <div className="screen-controls-body">
         <button className="button" disabled={busy || clock.manualBreak} onClick={() => send('restart')}><RotateCcw size={15} /> Сбросить текущий уровень</button>
         <button className="button" disabled={busy} onClick={() => open({ mode: 'confirm', title: 'Сбросить таймер?', message: 'Таймер вернётся на первый уровень. Данные игроков и оплаты сохранятся.', label: 'Сбросить таймер', action: { type: 'clockControl', operation: 'reset', revision } })}>На первый уровень</button>
-        <button className="button" disabled={busy} onClick={() => open({ mode: 'confirm', title: 'Завершить турнир?', message: 'Таймер остановится. Оплаты, места и история сохранятся.', label: 'Завершить турнир', action: finish })}>Завершить турнир</button>
+        {!floor && <button className="button" disabled={busy} onClick={() => open({ mode: 'confirm', title: 'Завершить турнир?', message: 'Таймер остановится. Оплаты, места и история сохранятся.', label: 'Завершить турнир', action: finish })}>Завершить турнир</button>}
       </div>
     </details>}
   </div>;

@@ -909,3 +909,37 @@ test('CRM amoCRM: смена этапов воронки, события тай�
   snap = await snapshot(db, admin, id);
   assert.equal(snap.roster.find(p => p.id === 'p25')?.stage, 'first_visit');
 });
+
+test('роли клуба ограничивают турнирные действия и данные на сервере', async t => {
+  const db = new PGlite();
+  t.after(() => db.close());
+  await db.exec(await readFile(new URL('./schema.sql', import.meta.url), 'utf8'));
+  await seed(db);
+  const id = 'doyle-main';
+  const demo = sessions.find(session => session.token === 'doyle-admin')!;
+  const owner = { ...demo, token: 'owner', memberRole: 'owner' } as const;
+  const manager = { ...demo, token: 'manager', memberRole: 'admin' } as const;
+  const floor = { ...demo, token: 'floor', role: 'floor', memberRole: 'floor' } as const;
+  const dealer = { ...demo, token: 'dealer', role: 'dealer', memberRole: 'dealer', table: 1 } as const;
+  const send = (session: typeof owner | typeof manager | typeof floor | typeof dealer, action: Parameters<typeof command>[4]) =>
+    command(db, session, id, randomUUID(), action);
+
+  const current = await snapshot(db, owner, id);
+  assert.ok(current.payments.length);
+  assert.deepEqual((await snapshot(db, manager, id)).payments, []);
+  assert.deepEqual((await snapshot(db, floor, id)).roster, []);
+  assert.deepEqual((await snapshot(db, dealer, id)).tables.map(table => table.number), [1]);
+  await assert.rejects(send(manager, { type: 'payment', playerId: 'p1', amount: 500 }), { status: 403 });
+  await assert.rejects(send(floor, { type: 'finish' }), { status: 403 });
+  await assert.rejects(send(dealer, { type: 'toggleClock' }), { status: 403 });
+  await assert.rejects(send(dealer, { type: 'swapSeats', playerId: 'p1', withPlayerId: 'p6' }), { status: 403 });
+  await assert.rejects(send(dealer, { type: 'addon', playerId: 'p6', tier: 1 }), { status: 403 });
+
+  await send(manager, { type: 'assign', playerId: 'p1', tableNo: 1, seatNo: 7 });
+  await send(dealer, { type: 'dealerSeat', playerId: 'p1', seatNo: 8 });
+  await send(floor, { type: 'adjustReentry', playerId: 'p1', delta: 1 });
+  const next = await snapshot(db, owner, id);
+  const player = next.entries.find(entry => entry.playerId === 'p1')!;
+  assert.equal(player.seatNo, 8);
+  assert.equal(player.reentries, current.entries.find(entry => entry.playerId === 'p1')!.reentries + 1);
+});

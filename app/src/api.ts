@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { MemberRole } from '../shared/access';
 import type { Command, CommandResult, Session, Snapshot } from '../shared/model';
 import type { DoyleRows } from '../shared/doyleQueries';
 import {
@@ -7,9 +8,9 @@ import {
 
 export type ProdAuthState = {
   user: { id: string; email: string; name: string; isSuperadmin: boolean };
-  role: 'owner' | 'admin' | 'floor' | 'dealer';
+  role: MemberRole;
   session: Session;
-  memberships: { club: Session['club']; role: string; tableNo: number | null }[];
+  memberships: { club: Session['club']; role: MemberRole; tableNo: number | null }[];
   doyleAccess?: boolean;
   defaultTournamentId?: string | null;
 };
@@ -26,7 +27,7 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
   return body as T;
 }
 
-export function useOffice() {
+export function useOffice(doyleTvTournament?: string) {
   const [doyleAuth, setDoyleAuth] = useState<DoyleAuth | null>(null);
   const [prodMode, setProdMode] = useState(false);
   const [prodAuth, setProdAuth] = useState<ProdAuthState | null>(null);
@@ -34,7 +35,7 @@ export function useOffice() {
   const [authChecked, setAuthChecked] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [token, setToken] = useState(() => new URLSearchParams(location.hash.slice(1)).get('session') || 'doyle-admin');
-  const [id, setId] = useState(() => new URLSearchParams(location.hash.slice(1)).get('tournament') || 'doyle-main');
+  const [id, setId] = useState(() => doyleTvTournament || new URLSearchParams(location.hash.slice(1)).get('tournament') || 'doyle-main');
   const [snapshot, setSnapshot] = useState<{ data: Snapshot; token: string }>();
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -60,9 +61,9 @@ export function useOffice() {
   const activeSessions = isDoyleLive && activeSession
     ? [activeSession]
     : prodMode && prodAuth
-      ? prodAuth.memberships.map(m => ({ token: 'club:' + m.club.id, club: m.club, role: (m.role === 'dealer' ? 'dealer' : 'admin') as Session['role'], table: m.tableNo }))
+      ? prodAuth.memberships.map(m => ({ token: 'club:' + m.club.id, club: m.club, role: (m.role === 'dealer' || m.role === 'floor' ? m.role : 'admin') as Session['role'], memberRole: m.role, table: m.tableNo }))
       : sessions;
-  const data = snapshot?.token === activeToken && (isDoyleLive || prodMode || snapshot.data.tournament.id === id) ? snapshot.data : undefined;
+  const data = snapshot?.token === activeToken && (isDoyleLive || snapshot.data.tournament.id === id) ? snapshot.data : undefined;
   const path = '/api/tournaments/' + id;
 
   const loadProdMe = useCallback(async () => {
@@ -78,9 +79,9 @@ export function useOffice() {
     setViewOneTable(false);
     const defaultId = body.defaultTournamentId ?? '';
     oneTableTournament.current = defaultId;
-    setId(body.doyleAccess ? '' : defaultId);
+    setId(body.doyleAccess ? doyleTvTournament || '' : defaultId);
     setAuthChecked(true);
-  }, []);
+  }, [doyleTvTournament]);
 
   const load = useCallback(() => {
     fetch('/api/demo', { credentials: 'same-origin' }).then(async resp => {
@@ -239,16 +240,47 @@ export function useOffice() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  function select(next: Session) {
+  async function select(next: Session) {
     if (inFlight.current || isDoyleLive) return;
+    if (prodMode) {
+      if (next.club.id === prodAuth?.session.club.id) return;
+      setBusy(true);
+      try {
+        await request('/api/auth/switch-club', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubId: next.club.id }),
+        });
+        setSnapshot(undefined);
+        await loadProdMe();
+      } catch (reason) {
+        setNotice(reason instanceof Error ? reason.message : 'Не удалось открыть клуб');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (next.club.id !== activeSession?.club.id) setId(next.club.id + '-main');
     setToken(next.token);
     setNotice('');
     setError('');
   }
-  function external(role: 'dealer' | 'display', table = 1) {
+  async function external(role: 'dealer' | 'display', table = 1) {
     if (isDoyleLive) {
-      setNotice('Для ТВ-дисплея в режиме Дойла используйте действующий display.html клуба');
+      if (role === 'display') window.open('/#' + new URLSearchParams({ 'doyle-tv': id }), '_blank', 'noopener');
+      return;
+    }
+    if (prodMode) {
+      if (role !== 'display') return;
+      // Open during the click so browsers allow it even before the token arrives.
+      const screen = window.open('about:blank', '_blank');
+      if (!screen) { setNotice('Разрешите открывать новые вкладки для ТВ-дисплея'); return; }
+      screen.opener = null;
+      try {
+        const { token: tvToken } = await request<{ token: string }>(path + '/tv-token', { method: 'POST' });
+        screen.location.replace('/#' + new URLSearchParams({ tv: tvToken }));
+      } catch (reason) {
+        screen.close();
+        setNotice(reason instanceof Error ? reason.message : 'Не удалось открыть ТВ-дисплей');
+      }
       return;
     }
     const next = sessions.find(item => item.club.id === activeSession?.club.id && item.role === role && (role === 'display' || item.table === table));
@@ -344,14 +376,6 @@ export function useOffice() {
     setSnapshot(undefined);
     setNotice('');
   }
-  async function prodInvite(email: string, role: 'owner' | 'admin' | 'floor' | 'dealer') {
-    const res = await request<{ token: string; expiresAt: number }>('/api/auth/invites', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, role }),
-    });
-    return `${location.origin}/?invite=${res.token}`;
-  }
   const run: Run = async (action, after) => {
     if (isDoyleLive) {
       setNotice('Данные Doyle открыты в режиме просмотра');
@@ -377,6 +401,7 @@ export function useOffice() {
       pending.current = undefined;
       setNotice(response.message);
       if (response.tournamentId) {
+        if (prodMode) oneTableTournament.current = response.tournamentId;
         setId(response.tournamentId);
         setError('');
       }
@@ -413,7 +438,7 @@ export function useOffice() {
     prodLogin,
     prodAcceptInvite,
     prodLogout,
-    prodInvite,
+    waitingForTournament: prodMode && !isDoyleLive && !id,
     setId: (next: string) => { if (!inFlight.current) { setId(next); setError(''); } },
   };
 }

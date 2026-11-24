@@ -5,11 +5,11 @@ import type { RatingPreset } from '../shared/rating.ts';
 import { planSeating } from './seating.ts';
 import { defaultConfig, methods, registrationOpen, type CashCommand, type OperationsCommand, type Preset } from '../shared/operations.ts';
 import { assign, charge, operate, operationTypes, seatsOf } from './operations.ts';
-import { clock, configOf, displayOf, refreshClock, structureOf } from './runtime.ts';
+import { clock, configOf, displayOf, refreshClock, structureOf, type StateRow } from './runtime.ts';
 import { cashOperation, cashTypes, postPayment } from './cash.ts';
 import { DomainError, field, integer } from './validation.ts';
 import { copyTournamentWeek, createTournament, tournamentColumns, tournamentRow, updateDefinition } from './definitions.ts';
-import { queueOperation, waitlist } from './registration.ts';
+import { queueOperation, registrationAvailability, waitlist } from './registration.ts';
 import { crmOperation, crmTypes, emptyCrmData, isPipelineStage, loadCrmData } from './crm.ts';
 import { pipelineStageMap, type CrmCommand, type PipelineStage } from '../shared/crm.ts';
 export { DomainError } from './validation.ts';
@@ -44,6 +44,10 @@ export async function snapshot(db: PGlite, session: Session, id: string): Promis
     const all = await entries(tx, id);
     const admin = session.role === 'admin';
     const dealer = session.role === 'dealer';
+    const floor = session.role === 'floor';
+    const staff = session.memberRole !== undefined;
+    const finances = admin && session.memberRole !== 'admin';
+    const dealerDesk = dealer && staff && session.table !== null;
     const display = displayOf(row);
     const config = configOf(row);
     if (!config.seating && display.mode === 'seating') display.mode = 'clock';
@@ -55,11 +59,15 @@ export async function snapshot(db: PGlite, session: Session, id: string): Promis
     const results = [...all.filter(entry => entry.status === 'active').map(entry => ({ ...entry, place: activeCount === 1 && (out.length > 0 || row.state === 'finished') ? 1 : null })),
       ...out.map((entry, index) => ({ ...entry, place: activeCount + index + 1 }))]
       .map(({ playerId, name, nickname, place, knockouts }) => ({ playerId, name: nickname || name, place, knockouts }));
-    const schedule = admin ? (await tx.query<Tournament>(`SELECT ${tournamentColumns} FROM tournaments WHERE club_id=$1
-      ORDER BY CASE state WHEN 'live' THEN 0 WHEN 'scheduled' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END,starts_at NULLS LAST,name,id`, [session.club.id])).rows : [];
-    const tables = !config.seating || (session.role === 'display' && !publicSeating) ? [] : (await tx.query<Table>(
+    const schedule = admin || floor || dealerDesk ? (await tx.query<Tournament>(`SELECT ${tournamentColumns} FROM tournaments WHERE club_id=$1 AND ($2::boolean OR state<>'draft')
+      ORDER BY CASE state WHEN 'live' THEN 0 WHEN 'scheduled' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END,starts_at NULLS LAST,name,id`, [session.club.id, admin])).rows : [];
+    const tables = !config.seating || (dealer && session.table === null) || (session.role === 'display' && !publicSeating) ? [] : (await tx.query<Table>(
       'SELECT table_no AS number,count(*)::int AS capacity FROM seats WHERE tournament_id=$1 AND ($2::int IS NULL OR table_no=$2) GROUP BY table_no ORDER BY table_no',
       [id, session.table])).rows;
+    const crm = admin ? await loadCrmData(tx, session.club.id) : emptyCrmData;
+    const dealerQueue = dealerDesk && config.seating && tables.length ? all
+      .filter(entry => entry.tableNo === null && (entry.status === 'registered' || (entry.status === 'active' && (entry.lastTable === null || entry.lastTable === session.table))))
+      .map(({ playerId, name, nickname }) => ({ playerId, name, nickname })) : undefined;
     return {
       tournament: { id, name: row.name, clubId: row.clubId, state: row.state, startsAt: row.startsAt, description: row.description, layout: admin ? row.layout : null },
       schedule, club: session.club, role: session.role, revision: row.revision, serverTime: now, clock: clock(row, now),
@@ -67,10 +75,14 @@ export async function snapshot(db: PGlite, session: Session, id: string): Promis
       display, manualStats: admin ? row.manualStats : { entered: 0, reentries: 0, out: 0 },
       presets: admin ? (await tx.query<Preset>('SELECT name,structure,config FROM blind_presets WHERE club_id=$1 ORDER BY name', [row.clubId])).rows : [],
       ratingPresets: admin ? (await tx.query<RatingPreset>('SELECT name,scheme FROM rating_presets WHERE club_id=$1 ORDER BY name', [row.clubId])).rows : [],
-      config: admin ? config : { ...defaultConfig, seating: config.seating, anteEnabled: config.anteEnabled, reentryFee: dealer ? config.reentryFee : 0,
+      config: admin ? config : { ...defaultConfig, seating: config.seating, anteEnabled: config.anteEnabled, reentryFee: dealer && !staff ? config.reentryFee : 0,
+        ...(dealerDesk ? { addon: config.addon, addon2Chips: config.addon2Chips, addon3Chips: config.addon3Chips, addonCost: 0, addon2Cost: 0, addon3Cost: 0 } : {}),
         manualBreakMinutes: config.manualBreakMinutes, startStack: config.startStack, addonChips: config.addonChips,
         knockout: config.knockout, ratingGuarantee: config.ratingGuarantee, rating: config.rating, ratingPreset: config.ratingPreset, lateRegistration: config.lateRegistration, comment: config.comment, bonusHand: config.bonusHand },
-      results: admin || (session.role === 'display' && display.mode === 'results') ? results : [],
+      results: admin || (session.role === 'display' && display.mode === 'results') ? results
+        : session.role === 'display' && display.finalTable
+          ? results.filter(item => item.place === null || item.place === 1).slice(0, 9).map((item, index) => ({ ...item, playerId: String(index + 1) }))
+          : [],
       stats: {
         registered: all.length || row.manualStats.entered, active: activeCount,
         entered: all.length ? attended.length : row.manualStats.entered, addons: attended.filter(p => p.addon).length,
@@ -79,30 +91,92 @@ export async function snapshot(db: PGlite, session: Session, id: string): Promis
       },
       tables,
       waitlist: admin ? await waitlist(tx, row) : { people: [], canAdmit: false },
-      entries: all.filter(p => admin || (dealer && config.seating && (p.tableNo === session.table || (p.status === 'out' && p.lastTable === session.table))) || (publicSeating && p.tableNo !== null))
+      dealerQueue,
+      entries: all.filter(p => admin || floor || (dealer && session.table !== null && config.seating && (p.tableNo === session.table || (p.status === 'out' && p.lastTable === session.table))) || (publicSeating && p.tableNo !== null))
         .map(({ lastTable: _lastTable, ...entry }) => publicSeating ? { ...entry, name: entry.nickname || entry.name, nickname: '',
-          playerId: String(entry.tableNo) + '/' + entry.seatNo, reentries: 0, rate: 0, knockouts: 0, addon: false, addonTier: 0, addonChips: 0 } : config.seating ? entry : { ...entry, tableNo: null, seatNo: null, confirmed: false }),
+          playerId: String(entry.tableNo) + '/' + entry.seatNo, reentries: 0, rate: 0, knockouts: 0, addon: false, addonTier: 0, addonChips: 0 } : { ...entry, rate: finances || !staff ? entry.rate : 100, ...(!config.seating ? { tableNo: null, seatNo: null, confirmed: false } : {}) }),
       roster: admin ? (await tx.query<Omit<Player, 'registeredAt'> & { registeredAt: string }>(
         'SELECT id,name,nickname,source,note,tags,phone,telegram,instagram,registered_at AS "registeredAt",telegram_consent AS "telegramConsent",stage,owner FROM players WHERE club_id=$1 ORDER BY name,id',
         [session.club.id])).rows.map(player => ({ ...player, registeredAt: Number(player.registeredAt), stage: isPipelineStage(player.stage) ? player.stage : 'lead' })) : [],
       visits: admin ? timed<Visit>((await tx.query<Timed<Visit>>(
         'SELECT e.player_id AS "playerId",t.id AS "tournamentId",t.name AS "tournamentName",e.visited_at AS time FROM entries e JOIN tournaments t ON t.id=e.tournament_id WHERE e.club_id=$1 AND e.visited_at IS NOT NULL ORDER BY e.visited_at DESC', [session.club.id])).rows) : [],
-      payments: admin ? timed<Payment>((await tx.query<Timed<Payment>>(
+      payments: finances ? timed<Payment>((await tx.query<Timed<Payment>>(
         "SELECT p.player_id AS \"playerId\",t.id AS \"tournamentId\",t.name AS \"tournamentName\",p.time,p.amount,p.kind,p.id::int,p.method,p.waived,p.collected_at_tournament AS \"collectedAtTournament\" FROM payments p JOIN tournaments t ON t.id=p.tournament_id LEFT JOIN entries e ON e.tournament_id=p.tournament_id AND e.player_id=p.player_id WHERE p.club_id=$1 AND NOT p.voided AND (p.kind='payment' OR e.status IS DISTINCT FROM 'registered') ORDER BY p.time DESC,p.id DESC", [session.club.id])).rows) : [],
       journal: admin ? timed<JournalItem>((await tx.query<Timed<JournalItem>>(
         'SELECT id::int,label,actor,time FROM journal WHERE tournament_id=$1 ORDER BY id DESC LIMIT 40', [id])).rows) : [],
-      crm: admin ? await loadCrmData(tx, session.club.id) : emptyCrmData,
+      crm: finances ? crm : { ...crm, broadcasts: crm.broadcasts.map(item => ({ ...item, revenue: 0 })) },
     };
   });
 }
 
+async function checkIn(tx: Transaction, row: StateRow, entry: Pick<Entry, 'playerId' | 'rate'>, time: number) {
+  const { id, clubId } = row;
+  const { playerId } = entry;
+  const params = [id, playerId];
+  const config = configOf(row);
+  const { rows: [attendance] } = await tx.query<{ price: number }>("UPDATE entries SET status='active',visited_at=$3,original_buyin=COALESCE(original_buyin,$4) WHERE tournament_id=$1 AND player_id=$2 RETURNING original_buyin AS price", [...params, time, config.buyIn]);
+  const existing = await tx.query("SELECT id FROM payments WHERE tournament_id=$1 AND player_id=$2 AND kind='buyin' AND NOT voided LIMIT 1", params);
+  if (!existing.rows.length) await charge(tx, row, playerId, attendance.price, 'buyin', time, false, entry.rate);
+  const visitCount = Number((await tx.query<{ count: string }>('SELECT COUNT(*) AS count FROM entries WHERE club_id=$1 AND player_id=$2 AND visited_at IS NOT NULL', [clubId, playerId])).rows[0]?.count ?? 0);
+  const autoStage: PipelineStage = visitCount >= 3 ? 'regular' : 'first_visit';
+  await tx.query(
+    "UPDATE players SET stage=$3 WHERE club_id=$1 AND id=$2 AND stage IN ('lead','registered','first_visit','reactivation') AND stage <> $3",
+    [clubId, playerId, autoStage],
+  );
+}
+
+async function seatDealerPlayer(tx: Transaction, row: StateRow, table: number, action: Extract<Command, { type: 'dealerSeat' }>, time: number) {
+  if (row.state !== 'live') throw new DomainError('Рассадка доступна во время турнира', 409);
+  const { id, clubId } = row;
+  const seat = integer(action.seatNo, 1, 10, 'Выберите место');
+  const exists = await tx.query('SELECT 1 FROM seats WHERE tournament_id=$1 AND table_no=$2 AND seat_no=$3', [id, table, seat]);
+  if (!exists.rows.length) throw new DomainError('Место не найдено', 404);
+  const all = await entries(tx, id);
+  if (all.some(entry => entry.tableNo === table && entry.seatNo === seat)) throw new DomainError('Это место уже занято', 409);
+
+  let player: Pick<Entry, 'playerId' | 'name' | 'rate' | 'status'>;
+  if ('playerId' in action) {
+    const targetId = field(action.playerId, 80, true);
+    const target = all.find(entry => entry.playerId === targetId);
+    if (!target || target.status === 'out' || (target.tableNo ?? target.lastTable ?? table) !== table) {
+      throw new DomainError('Игрок недоступен для рассадки за этим столом', 403);
+    }
+    player = target;
+  } else {
+    const config = configOf(row);
+    if (!registrationOpen(config, structureOf(row), row.level)) throw new DomainError('Поздняя регистрация закрыта');
+    if ((await registrationAvailability(tx, row)).full) throw new DomainError('Лимит записи на турнир исчерпан');
+    if ((await waitlist(tx, row)).people.some(person => person.arrived)) throw new DomainError('Передайте запись менеджеру: есть пришедшие в листе ожидания');
+    const name = field(action.name, 80, true);
+    const duplicate = await tx.query(
+      'SELECT 1 FROM players WHERE club_id=$1 AND (lower(name)=lower($2) OR lower(nickname)=lower($2))', [clubId, name]);
+    if (duplicate.rows.length) throw new DomainError('Игрок уже есть в клубе. Выберите его из записанных или обратитесь к менеджеру', 409);
+    const playerId = randomUUID();
+    await tx.query("INSERT INTO players (club_id,id,name,stage) VALUES ($1,$2,$3,'registered')", [clubId, playerId, name]);
+    await tx.query('INSERT INTO entries (club_id,tournament_id,player_id,registered_at) VALUES ($1,$2,$3,$4)', [clubId, id, playerId, time]);
+    player = { playerId, name, rate: 100, status: 'registered' };
+  }
+  if (player.status === 'registered') await checkIn(tx, row, player, time);
+  await assign(tx, id, player.playerId, table, seat);
+  return player.name + ' · стол ' + table + ', место ' + seat;
+}
+
 const entryActions = ['register', 'checkIn', 'checkOut', 'confirmSeat', 'bust', 'reenter', 'assign'];
-const knownActions = [...cashTypes, ...operationTypes, ...crmTypes, ...entryActions, 'addPlayer', 'updatePlayer', 'payment', 'createTournament', 'copyTournamentWeek', 'updateTournament', 'publishTournament', 'setWaitlistArrival', 'admitWaitlist', 'removeWaitlist', 'start', 'finish', 'autoSeat', 'toggleClock', 'nextLevel'];
+const floorActions = ['start', 'toggleClock', 'nextLevel', 'clockControl', 'reenter', 'adjustReentry'];
+const dealerActions = ['dealerSeat', 'swapSeats', 'reenter', 'adjustReentry', 'addon'];
+const financialActions = ['payment', 'voidPayment', 'setTariff', ...cashTypes];
+
+const knownActions = ['dealerSeat', ...cashTypes, ...operationTypes, ...crmTypes, ...entryActions, 'addPlayer', 'updatePlayer', 'payment', 'createTournament', 'copyTournamentWeek', 'updateTournament', 'publishTournament', 'setWaitlistArrival', 'admitWaitlist', 'removeWaitlist', 'start', 'finish', 'autoSeat', 'toggleClock', 'nextLevel'];
 
 export async function command(db: PGlite, session: Session, id: string | null, requestId: string, action: Command): Promise<CommandResult> {
   if (!action || !knownActions.includes(action.type) ||
       (id === null && action.type !== 'createTournament' && action.type !== 'copyTournamentWeek')) throw new DomainError('Неизвестное действие', 400);
-  if (session.role === 'display' || (session.role === 'dealer' && action.type !== 'bust' && action.type !== 'reenter' && action.type !== 'confirmSeat')) {
+  const allowed = session.role === 'admin' ? session.memberRole !== 'admin' || !financialActions.includes(action.type)
+    : session.role === 'floor' ? floorActions.includes(action.type)
+      : session.role === 'dealer' && (session.memberRole
+        ? session.table !== null && dealerActions.includes(action.type)
+        : ['bust', 'reenter', 'confirmSeat'].includes(action.type));
+  if (!allowed) {
     throw new DomainError('Нет доступа к действию', 403);
   }
   return db.transaction(async tx => {
@@ -142,7 +216,15 @@ export async function command(db: PGlite, session: Session, id: string | null, r
     await refreshClock(tx, row, time);
     const config = configOf(row);
     const structure = structureOf(row);
-    if (!config.seating && session.role === 'dealer') throw new DomainError('Рассадка отключена', 403);
+    if (session.role === 'dealer' && (!config.seating || session.table === null)) throw new DomainError('Стол дилера недоступен', 403);
+    if (session.role === 'dealer' && session.memberRole && type !== 'dealerSeat') {
+      const all = await entries(tx, id);
+      const atDesk = (playerId: string) => all.some(entry => entry.playerId === playerId &&
+        (entry.tableNo === session.table || (type === 'reenter' && entry.status === 'out' && entry.lastTable === session.table)));
+      if (!('playerId' in action) || !atDesk(action.playerId) || (type === 'swapSeats' && !atDesk(action.withPlayerId))) {
+        throw new DomainError('Дилеру доступны только игроки своего стола', 403);
+      }
+    }
     if (!config.seating && (type === 'autoSeat' || type === 'assign' || type === 'confirmSeat')) {
       throw new DomainError('Включите столы и рассадку в настройках');
     }
@@ -152,7 +234,10 @@ export async function command(db: PGlite, session: Session, id: string | null, r
       }
     }
 
-    if (type === 'updateTournament') {
+    if (type === 'dealerSeat') {
+      if (session.role !== 'dealer' || session.table === null) throw new DomainError('Действие доступно дилеру', 403);
+      message = await seatDealerPlayer(tx, row, session.table, action, time);
+    } else if (type === 'updateTournament') {
       message = await updateDefinition(tx, row, action);
     } else if (type === 'publishTournament') {
       if (row.state !== 'draft') throw new DomainError('Турнир уже опубликован');
@@ -267,15 +352,7 @@ export async function command(db: PGlite, session: Session, id: string | null, r
         if (session.role === 'dealer' && visibleAtTable !== session.table) throw new DomainError('Игрок закреплён за другим столом', 403);
         const params = [id, playerId];
         if (type === 'checkIn' && entry.status === 'registered') {
-          const { rows: [attendance] } = await tx.query<{ price: number }>("UPDATE entries SET status='active',visited_at=$3,original_buyin=COALESCE(original_buyin,$4) WHERE tournament_id=$1 AND player_id=$2 RETURNING original_buyin AS price", [...params, time, config.buyIn]);
-          const existing = await tx.query("SELECT id FROM payments WHERE tournament_id=$1 AND player_id=$2 AND kind='buyin' AND NOT voided LIMIT 1", params);
-          if (!existing.rows.length) await charge(tx, row, playerId, attendance.price, 'buyin', time, false, entry.rate);
-          const visitCount = Number((await tx.query<{ count: string }>('SELECT COUNT(*) AS count FROM entries WHERE club_id=$1 AND player_id=$2 AND visited_at IS NOT NULL', [clubId, playerId])).rows[0]?.count ?? 0);
-          const autoStage: PipelineStage = visitCount >= 3 ? 'regular' : 'first_visit';
-          await tx.query(
-            "UPDATE players SET stage=$3 WHERE club_id=$1 AND id=$2 AND stage IN ('lead','registered','first_visit','reactivation') AND stage <> $3",
-            [clubId, playerId, autoStage],
-          );
+          await checkIn(tx, row, entry, time);
           message = player.name + ' · пришёл';
         } else if (type === 'checkOut' && entry.status !== 'registered') {
           await tx.query("UPDATE entries SET status='registered',visited_at=NULL,table_no=NULL,seat_no=NULL,last_table=NULL,confirmed=false,busted_at=NULL WHERE tournament_id=$1 AND player_id=$2", params);
@@ -306,7 +383,8 @@ export async function command(db: PGlite, session: Session, id: string | null, r
     }
 
     if (!message) throw new DomainError('Статус игрока уже изменился. Обновите список');
-    const actor = session.role === 'admin' ? 'Администратор' : 'Дилер · стол ' + session.table;
+    const actor = session.role === 'floor' ? 'Флор' : session.role === 'dealer' ? 'Дилер · стол ' + session.table
+      : session.memberRole === 'owner' ? 'Владелец' : session.memberRole === 'admin' ? 'Менеджер' : 'Администратор';
     await tx.query('UPDATE tournaments SET revision=revision+1 WHERE id=$1', tournamentParams);
     await tx.query('INSERT INTO journal (tournament_id,label,actor,time) VALUES ($1,$2,$3,$4)', [id, message, actor, time]);
     await tx.query('INSERT INTO processed_commands (token,id,fingerprint,result) VALUES ($1,$2,$3,$4)', [session.token, requestId, fingerprint, message]);

@@ -46,7 +46,7 @@ export function Crm({ data, run, busy, open }: { data: Snapshot; run: Run; busy:
   return <CrmWorkspace data={data} run={run} busy={busy} open={open} />;
 }
 
-export function Dialog({ modal, data, run, close, busy, notice, change }: { modal: Modal; data: Snapshot; run: Run; close: () => void; busy: boolean; notice: string; change: (modal: Modal) => void }) {
+export function Dialog({ modal, data, run, close, busy, notice, change, finances = true }: { modal: Modal; data: Snapshot; run: Run; close: () => void; busy: boolean; notice: string; change: (modal: Modal) => void; finances?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [filter, setFilter] = useState('');
   useEffect(() => { ref.current?.showModal(); }, []);
@@ -113,13 +113,13 @@ export function Dialog({ modal, data, run, close, busy, notice, change }: { moda
       <h3>Визиты · {totals.visits.length}</h3>
       {totals.visits.map(item => <div className="history-line" key={item.tournamentId}><span>{item.tournamentName}</span><span>{new Date(item.time).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })}</span></div>)}
       {!totals.visits.length && <p className="muted">Посещений пока нет</p>}
-      <h3>Начисления и оплаты</h3>
+      {finances && <><h3>Начисления и оплаты</h3>
       {totals.payments.map(item => <div key={item.id} className="history-line"><span>{paymentLabels[item.kind]} · {item.tournamentName}</span><span>{money(item.waived ? 0 : item.amount)}</span></div>)}
       <p>К оплате {money(totals.due)}</p>
       <form onSubmit={event => submit(event, fields => ({ type: 'payment', playerId: player.id, amount: Number(fields.get('amount')) }))}>
         <label>Сумма оплаты за «{data.tournament.name}», ₽<input name="amount" type="number" min="1" max="1000000" required /></label>
         <button className="button wide" disabled={busy}>Внести оплату</button>
-      </form>
+      </form></>}
     </div>}
         {modal.mode === 'tables' && <form onSubmit={event => submit(event, fields => ({
       type: 'configureTables', count: Number(fields.get('count')), capacity: Number(fields.get('capacity')),
@@ -188,7 +188,7 @@ export function Dialog({ modal, data, run, close, busy, notice, change }: { moda
       <p className="muted">{entry.nickname && entry.nickname !== entry.name ? entry.name + ' · ' : ''}{entryDetail(entry, data.config.seating)}</p>
       {live && entry.status === 'registered' && <button className="button primary" disabled={busy} onClick={() => run({ type: 'checkIn', playerId: entry.playerId }, close)}>Отметить приход</button>}
       {data.tournament.state !== 'finished' && entry.status === 'registered' && <button className="button" disabled={busy} onClick={() => change(cancelEntry(entry))}>Отменить запись</button>}
-      {data.tournament.state !== 'finished' && <label className="inline-field">Тариф входа<select value={entry.rate} disabled={busy} onChange={event => run({ type: 'setTariff', playerId: entry.playerId, rate: Number(event.target.value) as 0 | 50 | 100 })}>
+      {finances && data.tournament.state !== 'finished' && <label className="inline-field">Тариф входа<select value={entry.rate} disabled={busy} onChange={event => run({ type: 'setTariff', playerId: entry.playerId, rate: Number(event.target.value) as 0 | 50 | 100 })}>
         <option value="100">100%</option><option value="50">50%</option><option value="0">Бесплатно</option>
       </select></label>}
       {live && entry.status !== 'registered' && <div className="actions">

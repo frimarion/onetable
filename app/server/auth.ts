@@ -1,9 +1,11 @@
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
+import type { Transaction } from '@electric-sql/pglite';
+import type { ClubAccounts, MemberRole } from '../shared/access.ts';
 import type { Club, Session } from '../shared/model.ts';
 import type { PgAdapter } from './pgAdapter.ts';
 import { DomainError } from './validation.ts';
 
-export type MemberRole = 'owner' | 'admin' | 'floor' | 'dealer';
+export type { MemberRole } from '../shared/access.ts';
 
 export type AuthUser = {
   id: string;
@@ -95,7 +97,7 @@ export function sessionCookieHeader(token: string, secure: boolean, clear = fals
 }
 
 function toSessionRole(role: MemberRole): Session['role'] {
-  return role === 'dealer' ? 'dealer' : 'admin';
+  return role === 'dealer' || role === 'floor' ? role : 'admin';
 }
 
 export async function loginWithPassword(
@@ -103,6 +105,7 @@ export async function loginWithPassword(
   email: string,
   password: string,
   meta: { ip: string; userAgent: string },
+  preferredClubId?: string,
 ): Promise<{ token: string; context: AuthContext }> {
   const normEmail = String(email || '').trim().toLowerCase();
   if (!normEmail || !password) throw new DomainError('Укажите email и пароль', 400);
@@ -163,7 +166,7 @@ export async function loginWithPassword(
       throw new DomainError('У вашей учётной записи нет активного доступа ни к одному клубу', 403);
     }
 
-    const primary = memberships[0];
+    const primary = memberships.find(item => item.club.id === preferredClubId) ?? memberships[0];
     const token = randomToken(32);
     const tokenHash = sha256(token);
 
@@ -188,8 +191,9 @@ export async function loginWithPassword(
         tableNo: primary.tableNo,
         memberships,
         session: {
-          token: 'session',
+          token: userRow.id + ':' + primary.club.id,
           club: primary.club,
+          memberRole: primary.role,
           role: toSessionRole(primary.role),
           table: primary.tableNo,
         },
@@ -243,8 +247,9 @@ export async function resolveSession(pg: PgAdapter, rawToken: string | undefined
       tableNo: current.tableNo,
       memberships,
       session: {
-        token: 'session',
+        token: row.user_id + ':' + current.club.id,
         club: current.club,
+        memberRole: current.role,
         role: toSessionRole(current.role),
         table: current.tableNo,
       },
@@ -273,90 +278,129 @@ export async function logoutSession(pg: PgAdapter, rawToken: string | undefined)
   });
 }
 
-export async function createInvite(
-  pg: PgAdapter,
-  actor: AuthContext,
-  email: string,
-  role: MemberRole,
-  ip: string,
-): Promise<{ token: string; expiresAt: number }> {
-  if (actor.memberRole !== 'owner' && !actor.user.isSuperadmin) {
-    throw new DomainError('Приглашать сотрудников может только владелец клуба', 403);
-  }
-  const normEmail = String(email || '').trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normEmail)) throw new DomainError('Укажите корректный email', 400);
-  if (!['owner', 'admin', 'floor', 'dealer'].includes(role)) throw new DomainError('Некорректная роль', 400);
+function requireOwner(actor: AuthContext) {
+  if (actor.memberRole !== 'owner') throw new DomainError('Управлять учётными записями может только владелец клуба', 403);
+}
 
+async function lockClub(tx: Transaction, clubId: string) {
+  await tx.query('SELECT id FROM clubs WHERE id=$1 FOR UPDATE', [clubId]);
+}
+
+export async function clubAccounts(pg: PgAdapter, actor: AuthContext): Promise<ClubAccounts> {
+  requireOwner(actor);
+  return pg.systemTransaction(async tx => {
+    const members = await tx.query<ClubAccounts['members'][number]>(
+      `SELECT u.id,u.email,u.name,m.role,m.table_no AS "tableNo" FROM club_members m JOIN users u ON u.id=m.user_id
+       WHERE m.club_id=$1 AND m.active ORDER BY (m.role='owner') DESC,u.name,u.email`, [actor.club.id]);
+    const invitations = await tx.query<Omit<ClubAccounts['invitations'][number], 'expiresAt'> & { expiresAt: string }>(
+      `SELECT email,role,table_no AS "tableNo",expires_at AS "expiresAt" FROM club_invites
+       WHERE club_id=$1 AND accepted_at IS NULL AND expires_at>$2 ORDER BY created_at DESC`, [actor.club.id, Date.now()]);
+    return { members: members.rows, invitations: invitations.rows.map(row => ({ ...row, expiresAt: Number(row.expiresAt) })) };
+  });
+}
+
+export async function createInvite(
+  pg: PgAdapter, actor: AuthContext, email: string, role: unknown, table: unknown, ip: string,
+): Promise<{ token: string; expiresAt: number }> {
+  requireOwner(actor);
+  const normEmail = email.trim().toLowerCase();
+  if (normEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normEmail)) throw new DomainError('Укажите корректный email', 400);
+  if (role !== 'admin' && role !== 'floor' && role !== 'dealer') throw new DomainError('Выберите роль сотрудника', 400);
+  if (role === 'dealer' && (typeof table !== 'number' || !Number.isInteger(table) || table < 1 || table > 20)) {
+    throw new DomainError('Укажите номер стола дилера', 400);
+  }
   const token = randomToken(32);
   const now = Date.now();
   const expiresAt = now + INVITE_TTL_MS;
+  const clubId = actor.club.id;
 
   await pg.systemTransaction(async tx => {
+    await lockClub(tx, clubId);
+    const active = await tx.query(
+      'SELECT 1 FROM club_members m JOIN users u ON u.id=m.user_id WHERE m.club_id=$1 AND m.active AND lower(u.email)=$2', [clubId, normEmail]);
+    if (active.rows.length) throw new DomainError('У сотрудника уже есть доступ к этому клубу', 409);
+    await tx.query('DELETE FROM club_invites WHERE club_id=$1 AND email=$2 AND accepted_at IS NULL', [clubId, normEmail]);
     await tx.query(
-      'INSERT INTO club_invites (token_hash,club_id,email,role,invited_by,created_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [sha256(token), actor.club.id, normEmail, role, actor.user.id, now, expiresAt],
-    );
+      'INSERT INTO club_invites (token_hash,club_id,email,role,table_no,invited_by,created_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [sha256(token), clubId, normEmail, role, role === 'dealer' ? table : null, actor.user.id, now, expiresAt]);
     await tx.query(
       'INSERT INTO auth_audit_log (event,user_id,club_id,email,ip,detail,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      ['invite_created', actor.user.id, actor.club.id, normEmail, ip, role, now],
-    );
+      ['invite_created', actor.user.id, clubId, normEmail, ip, role, now]);
   });
   return { token, expiresAt };
 }
 
-export async function acceptInvite(
-  pg: PgAdapter,
-  rawToken: string,
-  name: string,
-  password: string,
-  meta: { ip: string; userAgent: string },
-): Promise<{ token: string; context: AuthContext }> {
-  const tokenHash = sha256(String(rawToken || ''));
-  const cleanName = String(name || '').trim().slice(0, 80);
-  if (cleanName.length < 2) throw new DomainError('Укажите имя (минимум 2 символа)', 400);
-  const passwordHash = hashPassword(password);
-  const now = Date.now();
-
-  const email = await pg.systemTransaction(async tx => {
-    const invite = (await tx.query<{
-      club_id: string; email: string; role: MemberRole; expires_at: string; accepted_at: string | null;
-    }>('SELECT club_id,email,role,expires_at,accepted_at FROM club_invites WHERE token_hash=$1 FOR UPDATE', [tokenHash])).rows[0];
-
-    if (!invite || invite.accepted_at !== null || Number(invite.expires_at) < now) {
-      throw new DomainError('Ссылка приглашения недействительна или истекла', 400);
-    }
-
-    let user = (await tx.query<{ id: string }>('SELECT id FROM users WHERE lower(email)=$1', [invite.email.toLowerCase()])).rows[0];
-    if (!user) {
-      const id = 'u_' + randomUUID();
-      await tx.query(
-        'INSERT INTO users (id,email,name,password_hash,created_at) VALUES ($1,$2,$3,$4,$5)',
-        [id, invite.email.toLowerCase(), cleanName, passwordHash, now],
-      );
-      user = { id };
+export async function removeClubAccess(pg: PgAdapter, actor: AuthContext, target: { id: string } | { email: string }, ip: string) {
+  requireOwner(actor);
+  const clubId = actor.club.id;
+  await pg.systemTransaction(async tx => {
+    await lockClub(tx, clubId);
+    let email: string;
+    if ('id' in target) {
+      const member = (await tx.query<{ email: string; role: MemberRole }>(
+        'SELECT u.email,m.role FROM club_members m JOIN users u ON u.id=m.user_id WHERE m.club_id=$1 AND m.user_id=$2 AND m.active',
+        [clubId, target.id])).rows[0];
+      if (!member) throw new DomainError('Сотрудник не найден', 404);
+      if (member.role === 'owner') throw new DomainError('Доступ владельца нельзя удалить', 403);
+      email = member.email;
+      await tx.query('UPDATE club_members SET active=false WHERE club_id=$1 AND user_id=$2', [clubId, target.id]);
+      await tx.query('DELETE FROM auth_sessions WHERE club_id=$1 AND user_id=$2', [clubId, target.id]);
     } else {
-      await tx.query('UPDATE users SET name=$2, password_hash=$3, disabled=false WHERE id=$1', [user.id, cleanName, passwordHash]);
+      email = target.email.trim().toLowerCase();
+    }
+    await tx.query('DELETE FROM club_invites WHERE club_id=$1 AND lower(email)=$2 AND accepted_at IS NULL', [clubId, email.toLowerCase()]);
+    await tx.query(
+      'INSERT INTO auth_audit_log (event,user_id,club_id,email,ip,created_at) VALUES ($1,$2,$3,$4,$5,$6)',
+      ['id' in target ? 'member_removed' : 'invite_revoked', actor.user.id, clubId, email, ip, Date.now()]);
+  });
+}
+
+export async function acceptInvite(
+  pg: PgAdapter, rawToken: string, name: string, password: string, meta: { ip: string; userAgent: string },
+): Promise<{ token: string; context: AuthContext }> {
+  const tokenHash = sha256(rawToken);
+  const now = Date.now();
+  const { email, clubId } = await pg.systemTransaction(async tx => {
+    const candidate = (await tx.query<{ club_id: string }>('SELECT club_id FROM club_invites WHERE token_hash=$1', [tokenHash])).rows[0];
+    if (candidate) await lockClub(tx, candidate.club_id);
+    const invite = (await tx.query<{
+      club_id: string; email: string; role: MemberRole; table_no: number | null; expires_at: string; accepted_at: string | null;
+    }>('SELECT club_id,email,role,table_no,expires_at,accepted_at FROM club_invites WHERE token_hash=$1 FOR UPDATE', [tokenHash])).rows[0];
+    if (!invite || invite.accepted_at !== null || Number(invite.expires_at) <= now) {
+      throw new DomainError('Приглашение уже использовано или срок его действия истёк', 400);
+    }
+    const email = invite.email.toLowerCase();
+    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [email]);
+    const existing = (await tx.query<{ id: string; password_hash: string; disabled: boolean; locked_until: string | null }>(
+      'SELECT id,password_hash,disabled,locked_until FROM users WHERE lower(email)=$1 FOR UPDATE', [email])).rows[0];
+    const userId = existing?.id ?? 'u_' + randomUUID();
+    if (existing) {
+      if (existing.disabled || Number(existing.locked_until) > now || !password || password.length > 128 || !verifyPassword(password, existing.password_hash)) {
+        throw new DomainError('Укажите действующий пароль вашей учётной записи OneTable', 401);
+      }
+    } else {
+      const cleanName = name.trim().slice(0, 80);
+      if (cleanName.length < 2) throw new DomainError('Для новой учётной записи укажите имя', 400);
+      await tx.query('INSERT INTO users (id,email,name,password_hash,created_at) VALUES ($1,$2,$3,$4,$5)',
+        [userId, email, cleanName, hashPassword(password), now]);
     }
 
     await tx.query(
-      `INSERT INTO club_members (club_id,user_id,role,active,created_at)
-       VALUES ($1,$2,$3,true,$4)
-       ON CONFLICT (club_id,user_id) DO UPDATE SET role=EXCLUDED.role, active=true`,
-      [invite.club_id, user.id, invite.role, now],
-    );
+      `INSERT INTO club_members (club_id,user_id,role,table_no,active,created_at)
+       VALUES ($1,$2,$3,$4,true,$5) ON CONFLICT (club_id,user_id) DO UPDATE
+       SET role=EXCLUDED.role,table_no=EXCLUDED.table_no,active=true WHERE NOT club_members.active`,
+      [invite.club_id, userId, invite.role, invite.table_no, now]);
     await tx.query('UPDATE club_invites SET accepted_at=$2 WHERE token_hash=$1', [tokenHash, now]);
     await tx.query(
       'INSERT INTO auth_audit_log (event,user_id,club_id,email,ip,detail,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      ['invite_accepted', user.id, invite.club_id, invite.email, meta.ip, invite.role, now],
-    );
-    return invite.email;
+      ['invite_accepted', userId, invite.club_id, email, meta.ip, invite.role, now]);
+    return { email, clubId: invite.club_id };
   });
-
-  return loginWithPassword(pg, email, password, meta);
+  return loginWithPassword(pg, email, password, meta, clubId);
 }
 
 export async function issueTvToken(pg: PgAdapter, actor: AuthContext, tournamentId: string): Promise<string> {
-  if (actor.memberRole === 'dealer') throw new DomainError('Нет прав на выпуск ссылки ТВ', 403);
+  if (actor.memberRole !== 'owner' && actor.memberRole !== 'admin') throw new DomainError('Нет прав на выпуск ссылки ТВ', 403);
   const token = randomToken(32);
   const now = Date.now();
   await pg.systemTransaction(async tx => {

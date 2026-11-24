@@ -44,18 +44,15 @@ try {
       throw new Error('Формат: create-owner <clubId> <email> <name> <password>');
     }
     const normEmail = email.trim().toLowerCase();
-    const passHash = hashPassword(password);
     const now = Date.now();
     await pg.systemTransaction(async tx => {
       const existing = (await tx.query<{ id: string }>('SELECT id FROM users WHERE lower(email)=$1', [normEmail])).rows[0];
       const userId = existing?.id ?? ('u_' + randomUUID());
       if (!existing) {
         await tx.query(
-          'INSERT INTO users (id,email,name,password_hash,is_superadmin,created_at) VALUES ($1,$2,$3,$4,true,$5)',
-          [userId, normEmail, name, passHash, now],
+          'INSERT INTO users (id,email,name,password_hash,created_at) VALUES ($1,$2,$3,$4,$5)',
+          [userId, normEmail, name, hashPassword(password), now],
         );
-      } else {
-        await tx.query('UPDATE users SET name=$2, password_hash=$3, disabled=false WHERE id=$1', [userId, name, passHash]);
       }
       await tx.query(
         `INSERT INTO club_members (club_id,user_id,role,active,created_at)
@@ -66,14 +63,18 @@ try {
     });
     console.log(`Владелец ${normEmail} добавлен в клуб ${clubId}.`);
   } else if (cmd === 'invite') {
-    const [clubId, email, role = 'owner'] = args;
-    if (!clubId || !email) throw new Error('Формат: invite <clubId> <email> [owner|admin|floor|dealer]');
+    const [clubId, email, role = 'owner', table] = args;
+    if (!clubId || !email || !['owner', 'admin', 'floor', 'dealer'].includes(role)) {
+      throw new Error('Формат: invite <clubId> <email> [owner|admin|floor|dealer] [номер стола дилера]');
+    }
+    const tableNo = role === 'dealer' ? Number(table) : null;
+    if (tableNo !== null && (!Number.isInteger(tableNo) || tableNo < 1 || tableNo > 20)) throw new Error('Укажите номер стола дилера (1–20)');
     const token = randomToken(32);
     const now = Date.now();
     await pg.systemTransaction(async tx => {
       await tx.query(
-        'INSERT INTO club_invites (token_hash,club_id,email,role,created_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6)',
-        [sha256(token), clubId, email.trim().toLowerCase(), role, now, now + 24 * 60 * 60 * 1000],
+        'INSERT INTO club_invites (token_hash,club_id,email,role,table_no,created_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [sha256(token), clubId, email.trim().toLowerCase(), role, tableNo, now, now + 24 * 60 * 60 * 1000],
       );
     });
     console.log(`Одноразовая ссылка-приглашение (действует 24 часа):\nhttps://app.onetable.pro/?invite=${token}`);

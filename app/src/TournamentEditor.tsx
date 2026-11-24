@@ -12,18 +12,18 @@ import { scheduleHref } from './PublicSchedule';
 const newConfig = { ...defaultConfig, seating: false };
 
 export function TournamentEditor({ data, creating, busy, run, back, created, published }: {
-  data: Snapshot; creating: boolean; busy: boolean; run: Run;
+  data: Pick<Snapshot, 'club' | 'presets' | 'ratingPresets'> & Partial<Pick<Snapshot, 'tournament' | 'config' | 'structure' | 'clock'>>; creating: boolean; busy: boolean; run: Run;
   back: () => void; created: () => void; published: () => void;
 }) {
   const tournament = data.tournament;
-  const draft = !creating && tournament.state === 'draft';
-  const live = !creating && tournament.state === 'live';
-  const [name, setName] = useState(creating ? '' : tournament.name);
-  const [description, setDescription] = useState(creating ? '' : tournament.description);
-  const [date, setDate] = useState(!creating && tournament.startsAt ? moscowInput(tournament.startsAt) : '');
-  const [layout, setLayout] = useState(creating ? 'base:Deepstack' : tournament.layout ?? '');
-  const [config, setConfig] = useState(creating ? newConfig : data.config);
-  const [structure, setStructure] = useState(creating ? formats.Deepstack : data.structure);
+  const draft = !creating && tournament?.state === 'draft';
+  const live = !creating && tournament?.state === 'live';
+  const [name, setName] = useState(creating ? '' : tournament?.name ?? '');
+  const [description, setDescription] = useState(creating ? '' : tournament?.description ?? '');
+  const [date, setDate] = useState(!creating && tournament?.startsAt ? moscowInput(tournament.startsAt) : '');
+  const [layout, setLayout] = useState(creating ? 'base:Deepstack' : tournament?.layout ?? '');
+  const [config, setConfig] = useState(creating ? newConfig : data.config ?? newConfig);
+  const [structure, setStructure] = useState(creating ? formats.Deepstack : data.structure ?? formats.Deepstack);
   const [layoutName, setLayoutName] = useState('');
   const definition: TournamentDefinition = {
     name, description, startsAt: moscowIso(date), layout: layout || null, config, structure,
@@ -33,7 +33,7 @@ export function TournamentEditor({ data, creating, busy, run, back, created, pub
   const dirty = current !== saved;
   const missingLayout = layout.startsWith('club:') && !data.presets.some(preset => 'club:' + preset.name === layout);
   const existingLayout = data.presets.some(item => item.name === layoutName.trim());
-  const publicationReady = Boolean(tournament.startsAt) && !dirty;
+  const publicationReady = Boolean(tournament?.startsAt) && !dirty;
 
   function applyLayout(value: string) {
     setLayout(value);
@@ -56,12 +56,12 @@ export function TournamentEditor({ data, creating, busy, run, back, created, pub
 
   return <div className="tournament-editor">
     <button className="back" disabled={busy} onClick={back}><ArrowLeft size={15} /> {creating || draft ? 'Все турниры' : 'К управлению турниром'}</button>
-    <Heading title={creating ? 'Новый турнир' : draft ? tournament.name : 'Редактирование турнира'} subtitle={data.club.name + ' · ' + data.club.venue}
-      state={!creating && <State tournament={tournament} />}
+    <Heading title={creating ? 'Новый турнир' : draft ? tournament?.name ?? '' : 'Редактирование турнира'} subtitle={data.club.name + ' · ' + data.club.venue}
+      state={!creating && tournament && <State tournament={tournament} />}
       actions={<>
         {draft && <button className="button" disabled={busy || !publicationReady}
           onClick={() => run({ type: 'publishTournament' }, published)}>Опубликовать</button>}
-        {!creating && !draft && <a className="button" href={scheduleHref(data.club.id, tournament.id)} target="_blank" rel="noreferrer">
+        {!creating && !draft && tournament && <a className="button" href={scheduleHref(data.club.id, tournament.id)} target="_blank" rel="noreferrer">
           В расписании <ExternalLink size={15} />
         </a>}
         <button className={creating ? 'button' : 'button primary'} type="submit" form="tournament-editor" disabled={busy || (!creating && !dirty)}>
@@ -78,7 +78,7 @@ export function TournamentEditor({ data, creating, busy, run, back, created, pub
             <div className="fields-grid">
               <label>Название турнира<input value={name} required maxLength={80} onChange={event => setName(event.target.value)} /></label>
               <label>Дата и время (МСК)<input type="datetime-local" value={date} min="2000-01-01T00:00" max="9999-12-31T23:59"
-                required={!creating && !draft && !!tournament.startsAt} onChange={event => setDate(event.target.value)} /></label>
+                required={!creating && !draft && !!tournament?.startsAt} onChange={event => setDate(event.target.value)} /></label>
             </div>
             <label>Описание для расписания<textarea value={description} maxLength={1000} rows={3} onChange={event => setDescription(event.target.value)} /></label>
           </section>
@@ -110,7 +110,7 @@ export function TournamentEditor({ data, creating, busy, run, back, created, pub
         <section className="panel admin-pane editor-section" aria-labelledby="event-blinds">
           <h2 id="event-blinds">Структура блайндов</h2>
           {live && <p className="muted">Текущий и сыгранные уровни закреплены.</p>}
-          <StructureFields structure={structure} setStructure={setStructure} fixed={live ? data.clock.level + 1 : 0} busy={busy}
+          <StructureFields structure={structure} setStructure={setStructure} fixed={live && data.clock ? data.clock.level + 1 : 0} busy={busy}
             anteEnabled={config.anteEnabled} setAnteEnabled={anteEnabled => setConfig(current => ({ ...current, anteEnabled }))} />
         </section>
       </fieldset>

@@ -3,8 +3,8 @@ import { addonOptions } from '../shared/operations';
 import type { Run } from './api';
 import { format, money } from './widgets';
 
-export function AddonControls({ entry, data, busy, run }: {
-  entry: Entry; data: Snapshot; busy: boolean; run: Run;
+export function AddonControls({ entry, data, busy, run, showPrice = true }: {
+  entry: Entry; data: Snapshot; busy: boolean; run: Run; showPrice?: boolean;
 }) {
   const choices = addonOptions(data.config);
   const canEdit = data.tournament.state === 'scheduled' || data.tournament.state === 'live';
@@ -15,7 +15,7 @@ export function AddonControls({ entry, data, busy, run }: {
   return <div className="addon-controls" role="group" aria-label={'Аддоны: ' + entry.name}>
     {choices.map(choice => {
       const selected = entry.addonTier === choice.tier;
-      const details = choice.label + ' · ' + money(choice.cost) + ' · ' + format.format(choice.chips) + ' фишек';
+      const details = choice.label + (showPrice ? ' · ' + money(choice.cost) : '') + ' · ' + format.format(choice.chips) + ' фишек';
       return <button key={choice.tier} className="button compact" type="button" aria-pressed={selected}
         aria-label={choice.label + ': ' + entry.name} title={details}
         disabled={busy || !canEdit || (entry.status !== 'active' && !(entry.status === 'out' && selected))}

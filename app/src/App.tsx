@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { ArrowLeft, CalendarPlus, Check, ChevronRight, Clock3, Copy, Database, ExternalLink, Eye, EyeOff, LayoutGrid, LogOut, Plus, ShieldCheck, Trophy, UserPlus, UsersRound, Wallet, X } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, ChevronRight, Clock3, Database, ExternalLink, Eye, EyeOff, LayoutGrid, LogOut, Plus, ShieldCheck, Trophy, UserRoundCog, UsersRound, Wallet, X } from 'lucide-react';
 import { useOffice } from './api';
 import { Brand, Heading, pad, Person, State, Timer, money, startLabel } from './widgets';
 import { Crm, Dialog, bustModal, type Modal } from './crm';
@@ -11,9 +11,11 @@ import { RatingStudio } from './RatingBuilder';
 import { ClubFinance } from './ClubFinance';
 import { MobileNav } from './MobileNav';
 import { ThemeSwitch } from './Theme';
+import { ClubAccounts } from './ClubAccounts';
+import { StaffTournament } from './StaffTournament';
 import { scheduleHref } from './PublicSchedule';
 
-type View = 'live' | 'crm' | 'rating' | 'finance' | 'tournaments' | 'create' | 'edit' | 'week';
+type View = 'live' | 'crm' | 'rating' | 'finance' | 'tournaments' | 'create' | 'edit' | 'week' | 'accounts';
 
 function DoyleConnectDialog({ busy, onConnect, onClose }: {
   busy: boolean;
@@ -69,13 +71,14 @@ function ProdAuthScreen({ busy, onLogin, onAcceptInvite }: {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [existing, setExisting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [err, setErr] = useState('');
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setErr('');
-    if (inviteToken && password !== confirmPassword) {
+    if (inviteToken && !existing && password !== confirmPassword) {
       setErr('Пароли не совпадают');
       return;
     }
@@ -91,10 +94,12 @@ function ProdAuthScreen({ busy, onLogin, onAcceptInvite }: {
     <div className="panel auth-card">
       <Brand />
       <h1>{inviteToken ? 'Активация доступа' : 'Вход в кабинет'}</h1>
-      {inviteToken && <p className="muted">Задайте имя и надёжный пароль (минимум 10 символов, буквы и цифры).</p>}
+      {inviteToken && <p className="muted">Добавьте доступ к существующей учётной записи или создайте новую.</p>}
       {err && <p className="alert" role="alert">{err}</p>}
       <form className="admin-form" onSubmit={submit}>
-        {inviteToken ? (
+        {inviteToken && <label className="crm-checkbox"><input type="checkbox" checked={existing}
+          disabled={busy} onChange={event => setExisting(event.target.checked)} />У меня уже есть учётная запись OneTable</label>}
+        {inviteToken ? (!existing &&
           <label>Ваше имя
             <input type="text" required autoFocus value={name} disabled={busy} onChange={e => setName(e.target.value)} placeholder="Александр" />
           </label>
@@ -103,10 +108,10 @@ function ProdAuthScreen({ busy, onLogin, onAcceptInvite }: {
             <input type="email" required autoFocus autoComplete="username" value={email} disabled={busy} onChange={e => setEmail(e.target.value)} placeholder="you@club.ru" />
           </label>
         )}
-        <label>{inviteToken ? 'Новый пароль' : 'Пароль'}
+        <label>{inviteToken && !existing ? 'Новый пароль' : 'Пароль'}
           <span className="password-field">
-            <input type={showPassword ? 'text' : 'password'} required minLength={inviteToken ? 10 : 1}
-              autoComplete={inviteToken ? 'new-password' : 'current-password'}
+            <input type={showPassword ? 'text' : 'password'} required minLength={inviteToken && !existing ? 10 : 1}
+              autoComplete={inviteToken && !existing ? 'new-password' : 'current-password'}
               value={password} disabled={busy} onChange={e => setPassword(e.target.value)} />
             <button type="button" className="password-toggle" aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
               title={showPassword ? 'Скрыть пароль' : 'Показать пароль'} onClick={() => setShowPassword(v => !v)}>
@@ -114,7 +119,7 @@ function ProdAuthScreen({ busy, onLogin, onAcceptInvite }: {
             </button>
           </span>
         </label>
-        {inviteToken && <label>Повторить пароль
+        {inviteToken && !existing && <label>Повторить пароль
           <span className="password-field">
             <input type={showPassword ? 'text' : 'password'} required minLength={10} autoComplete="new-password"
               value={confirmPassword} disabled={busy} onChange={e => setConfirmPassword(e.target.value)} />
@@ -128,79 +133,16 @@ function ProdAuthScreen({ busy, onLogin, onAcceptInvite }: {
   </main>;
 }
 
-function InviteMemberDialog({ onInvite, onClose }: {
-  onInvite: (email: string, role: 'owner' | 'admin' | 'floor' | 'dealer') => Promise<string>;
-  onClose: () => void;
-}) {
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'owner' | 'admin' | 'floor' | 'dealer'>('admin');
-  const [link, setLink] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [err, setErr] = useState('');
-  const [sending, setSending] = useState(false);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setErr('');
-    setSending(true);
-    try {
-      const url = await onInvite(email, role);
-      setLink(url);
-      setCopied(false);
-    } catch (reason) {
-      setErr(reason instanceof Error ? reason.message : 'Не удалось создать приглашение');
-    } finally {
-      setSending(false);
-    }
-  }
-
-  return <div className="backdrop" onClick={onClose}>
-    <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="invite-title" onClick={e => e.stopPropagation()}>
-      <div className="dialog-head">
-        <h2 id="invite-title">Пригласить сотрудника</h2>
-        <button className="button icon" aria-label="Закрыть" onClick={onClose}><X size={18} /></button>
-      </div>
-      <div className="dialog-body">
-        <p className="muted">Создаётся одноразовая защищённая ссылка (действует 24 часа). Сотрудник сам задаст свой пароль — пересылать пароли в чатах не нужно.</p>
-        {err && <p className="alert" role="alert">{err}</p>}
-        <form className="admin-form" onSubmit={submit}>
-          <label>Email сотрудника
-            <input type="email" required value={email} disabled={sending} onChange={e => setEmail(e.target.value)} placeholder="admin@club.ru" />
-          </label>
-          <label>Роль в клубе
-            <select value={role} disabled={sending} onChange={e => setRole(e.target.value as typeof role)}>
-              <option value="admin">Администратор (турниры, касса, CRM)</option>
-              <option value="floor">Флор (турниры и рассадка)</option>
-              <option value="dealer">Дилер (планшет стола)</option>
-              <option value="owner">Владелец клуба</option>
-            </select>
-          </label>
-          <button className="button primary" type="submit" disabled={sending}>{sending ? 'Создаём…' : 'Создать ссылку-приглашение'}</button>
-        </form>
-        {link && <div className="admin-form" style={{ marginTop: 12 }}>
-          <label>Одноразовая ссылка
-            <input type="text" readOnly value={link} onFocus={e => e.currentTarget.select()} />
-          </label>
-          <button className="button" type="button" onClick={async () => {
-            try { await navigator.clipboard.writeText(link); setCopied(true); } catch { setCopied(false); }
-          }}>{copied ? <Check size={15} /> : <Copy size={15} />} {copied ? 'Скопировано' : 'Копировать ссылку'}</button>
-        </div>}
-      </div>
-    </div>
-  </div>;
-}
-
 export function App() {
   const office = useOffice();
   const {
     session, data, busy, error, notice, setNotice, sessions, run, select, external,
     doyleAuth, isDoyleLive, connectDoyle, disconnectDoyle, showLinkedDoyle,
-    prodMode, prodAuth, authChecked, prodLogin, prodAcceptInvite, prodLogout, prodInvite,
+    prodMode, prodAuth, authChecked, prodLogin, prodAcceptInvite, prodLogout, waitingForTournament,
   } = office;
   const [view, setView] = useState<View>();
   const [modal, setModal] = useState<Modal>();
   const [connectOpen, setConnectOpen] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
   const open = (next: Modal) => { setNotice(''); setModal(next); };
   const admin = sessions.find(item => item.role === 'admin' && item.club.id === session?.club.id);
   const connectDialog = connectOpen && !prodMode && <DoyleConnectDialog
@@ -220,8 +162,55 @@ export function App() {
     setModal(undefined);
   }
 
-  if (prodMode && authChecked && !prodAuth) {
+  if (prodMode && authChecked && (!prodAuth || new URLSearchParams(location.search).has('invite'))) {
     return <ProdAuthScreen busy={busy} onLogin={prodLogin} onAcceptInvite={prodAcceptInvite} />;
+  }
+
+  const accounts = prodAuth?.role === 'owner';
+  const finances = !prodMode || accounts;
+  const staffDesk = prodMode && (session?.role === 'floor' || session?.role === 'dealer');
+  const clubSelector = session && sessions.length > 1 && <div className="club-switch">
+    <label htmlFor="club">Рабочее пространство</label>
+    <select id="club" value={session.club.id} disabled={busy} onChange={event => {
+      const next = sessions.find(item => item.club.id === event.target.value && (prodMode || item.role === 'admin'));
+      if (next) { setView('tournaments'); setModal(undefined); void select(next); }
+    }}>
+      {sessions.filter(item => prodMode || item.role === 'admin').map(item =>
+        <option key={item.club.id} value={item.club.id}>{item.club.name}</option>)}
+    </select>
+  </div>;
+  if (session && (staffDesk || waitingForTournament)) {
+    return <div className={staffDesk ? 'shell dealer-shell' : 'shell admin-shell'}>
+      <header className="topbar"><Brand /><div className="top-right"><ThemeSwitch />
+        {prodAuth?.doyleAccess && <button className="button compact" onClick={openLinkedDoyle}>Турниры Doyle</button>}
+        <button className="button compact" onClick={() => void prodLogout()}><LogOut size={16} /> Выйти</button>
+      </div></header>
+      {!staffDesk && <aside className="sidebar">
+        {clubSelector}
+        <nav aria-label="Разделы клуба">
+          <button className={view !== 'accounts' ? 'selected' : ''} onClick={() => setView('tournaments')}><LayoutGrid size={18} /> Турниры</button>
+          {accounts && <button className={view === 'accounts' ? 'selected' : ''} onClick={() => setView('accounts')}><UserRoundCog size={18} /> Учётные записи</button>}
+        </nav>
+      </aside>}
+      <main className="sheet account-sheet">
+        {staffDesk && clubSelector}
+        {staffDesk ? (data ? <StaffTournament key={data.club.id} data={data} tableNo={session.table} busy={busy}
+          run={run} setId={id => { office.setId(id); setModal(undefined); }} open={open} />
+          : <Heading title={error || (waitingForTournament ? 'Нет доступных турниров' : 'Загружаем турнир…')} subtitle={session.club.name} />)
+          : view === 'accounts' && accounts ? <ClubAccounts key={session.club.id} club={session.club} />
+            : view === 'create' ? <TournamentEditor data={{ club: session.club, presets: [], ratingPresets: [] }} creating busy={busy} run={run}
+              back={() => setView('tournaments')} created={() => setView('live')} published={() => setView('live')} />
+              : <Heading title="Турниры" subtitle={session.club.name} actions={
+                <button className="button primary" disabled={busy} onClick={() => setView('create')}><Plus size={17} /> Создать турнир</button>
+              } />}
+      </main>
+      {!staffDesk && <MobileNav label="Разделы клуба" busy={busy} items={[
+        { label: 'Турниры', Icon: LayoutGrid, action: () => setView('tournaments'), active: view !== 'accounts' },
+        ...(accounts ? [{ label: 'Учётные записи', Icon: UserRoundCog, action: () => setView('accounts'), active: view === 'accounts' }] : []),
+      ]} />}
+      {data && modal && <Dialog modal={modal} data={data} finances={finances} run={run} close={() => setModal(undefined)} busy={busy} notice={notice} change={open} />}
+      {notice && !modal && <div className="toast" role="status">{notice}<button aria-label="Скрыть сообщение" onClick={() => setNotice('')}><X size={17} /></button></div>}
+    </div>;
   }
 
   if (!session || !data) {
@@ -239,8 +228,9 @@ export function App() {
 
   const dealer = session.role === 'dealer';
   const currentView = view ?? (isDoyleLive ? 'tournaments' : 'live');
-  const screen = dealer ? 'dealer' : currentView === 'live' && data.tournament.state === 'draft' ? 'edit' : currentView;
-  const breadcrumb = screen === 'crm' ? 'CRM' : screen === 'rating' ? 'Рейтинг' : screen === 'finance' ? 'Финансы' : dealer ? 'Планшет дилера' : 'Турниры';
+  const allowedView = (currentView === 'accounts' && !accounts) || (currentView === 'finance' && !finances) ? 'tournaments' : currentView;
+  const screen = dealer ? 'dealer' : allowedView === 'live' && data.tournament.state === 'draft' ? 'edit' : allowedView;
+  const breadcrumb = screen === 'accounts' ? 'Учётные записи' : screen === 'crm' ? 'CRM' : screen === 'rating' ? 'Рейтинг' : screen === 'finance' ? 'Финансы' : dealer ? 'Планшет дилера' : 'Турниры';
   function navigate(next: View) {
     setView(next);
     window.scrollTo(0, 0);
@@ -259,18 +249,13 @@ export function App() {
       </div>
     </header>
     {!dealer && <aside className="sidebar">
-      <div className="club-switch"><label htmlFor="club">Рабочее пространство</label>
-        <select id="club" value={session.club.id} disabled={busy} onChange={event => {
-          setModal(undefined); setView('live'); select(sessions.find(item => item.club.id === event.target.value && item.role === 'admin')!);
-        }}>
-          {sessions.filter(item => item.role === 'admin').map(item => <option key={item.club.id} value={item.club.id}>{item.club.name}</option>)}
-        </select>
-      </div>
+      {clubSelector}
       <nav aria-label="Разделы клуба">
-        <button disabled={busy} className={screen !== 'crm' && screen !== 'rating' && screen !== 'finance' ? 'selected' : ''} onClick={() => setView('tournaments')}><LayoutGrid size={18} /> Турниры</button>
-        <button disabled={busy} className={screen === 'finance' ? 'selected' : ''} onClick={() => setView('finance')}><Wallet size={18} /> Финансы</button>
+        <button disabled={busy} className={screen !== 'crm' && screen !== 'rating' && screen !== 'finance' && screen !== 'accounts' ? 'selected' : ''} onClick={() => setView('tournaments')}><LayoutGrid size={18} /> Турниры</button>
+        {finances && <button disabled={busy} className={screen === 'finance' ? 'selected' : ''} onClick={() => setView('finance')}><Wallet size={18} /> Финансы</button>}
         <button disabled={busy} className={screen === 'rating' ? 'selected' : ''} onClick={() => setView('rating')}><Trophy size={18} /> Рейтинг</button>
         <button disabled={busy} className={screen === 'crm' ? 'selected' : ''} onClick={() => setView('crm')}><UsersRound size={18} /> CRM клуба</button>
+        {accounts && <button disabled={busy} className={screen === 'accounts' ? 'selected' : ''} onClick={() => navigate('accounts')}><UserRoundCog size={18} /> Учётные записи</button>}
       </nav>
       <div className="sidebar-bottom">
         {isDoyleLive ? (
@@ -282,9 +267,6 @@ export function App() {
         ) : prodMode && prodAuth ? (
           <div className="sidebar-conn">
             <div><strong>{session.club.name}</strong><small>{prodAuth.user.email}</small></div>
-            {prodAuth.role === 'owner' && (
-              <button className="button compact wide" type="button" onClick={() => setInviteOpen(true)}><UserPlus size={14} /> Пригласить</button>
-            )}
             <button className="button compact wide" type="button" onClick={() => void prodLogout()}><LogOut size={14} /> Выйти</button>
           </div>
         ) : (
@@ -314,8 +296,9 @@ export function App() {
         creating={screen === 'create'} busy={busy} run={run}
         back={() => setView(screen === 'create' || data.tournament.state === 'draft' ? 'tournaments' : 'live')}
         created={() => setView('live')} published={() => setView('live')} />}
-      {screen === 'live' && <Live key={data.tournament.id} data={data} busy={busy} run={run} external={external} open={open} exportPayments={office.exportPayments}
+      {screen === 'live' && <Live key={data.tournament.id} data={data} busy={busy} run={run} external={external} open={open} exportPayments={office.exportPayments} finances={finances} nativeDealer={prodMode}
         back={() => navigate('tournaments')} edit={() => { setNotice(''); navigate('edit'); }} crm={() => navigate('crm')} />}
+      {screen === 'accounts' && <ClubAccounts key={session.club.id} club={session.club} />}
       {screen === 'crm' && <Crm key={data.club.id} data={data} run={run} busy={busy} open={open} />}
       {screen === 'rating' && <RatingStudio key={data.club.id} data={data} busy={busy} run={run} />}
       {screen === 'finance' && <ClubFinance key={data.club.id} data={data} openTournament={id => { office.setId(id); navigate('live'); }} />}
@@ -344,13 +327,13 @@ export function App() {
     </main>
     {!dealer && screen !== 'live' && <MobileNav label="Разделы клуба" busy={busy} items={[
       { label: 'Турниры', Icon: LayoutGrid, action: () => navigate('tournaments'), active: screen === 'tournaments' || screen === 'create' || screen === 'week' },
-      { label: 'Финансы', Icon: Wallet, action: () => navigate('finance'), active: screen === 'finance' },
+      ...(finances ? [{ label: 'Финансы', Icon: Wallet, action: () => navigate('finance'), active: screen === 'finance' }] : []),
       { label: 'Рейтинг', Icon: Trophy, action: () => navigate('rating'), active: screen === 'rating' },
       { label: 'CRM', Icon: UsersRound, action: () => navigate('crm'), active: screen === 'crm' },
+      ...(accounts ? [{ label: 'Учётные записи', Icon: UserRoundCog, action: () => navigate('accounts'), active: screen === 'accounts' }] : []),
     ]} />}
-    {modal && <Dialog modal={modal} data={data} run={run} close={() => setModal(undefined)} busy={busy} notice={notice} change={open} />}
+    {modal && <Dialog modal={modal} data={data} finances={finances} run={run} close={() => setModal(undefined)} busy={busy} notice={notice} change={open} />}
     {connectDialog}
-    {inviteOpen && <InviteMemberDialog onInvite={prodInvite} onClose={() => setInviteOpen(false)} />}
     {notice && !modal && <div className="toast" role="status">{notice}<button aria-label="Скрыть сообщение" onClick={() => setNotice('')}><X size={17} /></button></div>}
   </div>;
 }
