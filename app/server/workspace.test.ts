@@ -19,12 +19,12 @@ test('Клуб из адреса сохраняет роли и изоляцию
   try {
     await db.exec(`
       CREATE TABLE clubs(id text, name text, venue text, accent text);
-      CREATE TABLE users(id text, email text, name text, is_superadmin boolean, disabled boolean);
+      CREATE TABLE users(id text, email text, name text, avatar_url text DEFAULT '', is_superadmin boolean, disabled boolean);
       CREATE TABLE club_members(club_id text, user_id text, role text, active boolean, table_no int);
       CREATE TABLE auth_sessions(token_hash text, user_id text, club_id text, expires_at bigint);
       INSERT INTO clubs VALUES ('doyle','Doyle Poker Club','Москва','#2bd98a'),
         ('royal','Royal Poker Club','Казань','#2bd98a'), ('other','Другой клуб','Казань','#2bd98a');
-      INSERT INTO users VALUES ('user','owner@example.com','Владелец',true,false);
+      INSERT INTO users VALUES ('user','owner@example.com','Владелец','',true,false);
       INSERT INTO club_members VALUES ('doyle','user','owner',true,NULL), ('royal','user','dealer',true,3),
         ('other','user','admin',false,NULL);
     `);

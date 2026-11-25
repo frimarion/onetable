@@ -971,7 +971,7 @@ button.result-person:not(:disabled):hover > svg { color: var(--accent); }
 
 .profile-popover {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 40;
-  width: 324px; max-width: calc(100vw - 24px);
+  width: 324px; max-width: calc(100vw - 24px); white-space: normal;
   background: var(--panel); border: 1px solid var(--dialog-border); border-radius: 14px;
   box-shadow: 0 18px 44px rgba(0, 0, 0, .34); overflow: hidden;
 }
@@ -1030,14 +1030,14 @@ button.result-person:not(:disabled):hover > svg { color: var(--accent); }
 
 /* Модалка настроек профиля */
 .backdrop {
-  position: fixed; inset: 0; z-index: 60;
+  position: fixed; inset: 0; z-index: 60; white-space: normal;
   display: grid; place-items: center; padding: 16px;
   background: var(--backdrop);
 }
 .dialog {
   width: min(480px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow-y: auto;
   background: var(--panel); border: 1px solid var(--dialog-border); border-radius: 14px; padding: 20px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, .42);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .42); white-space: normal;
 }
 :root[data-theme="light"] .dialog { box-shadow: 0 20px 50px rgba(15, 25, 20, .18); }
 .settings-dialog {
@@ -1058,7 +1058,7 @@ button.result-person:not(:disabled):hover > svg { color: var(--accent); }
   padding: 15px 0; border-bottom: 1px solid var(--line); min-width: 0;
 }
 .pref-row:first-child { padding-top: 4px; }
-.pref-row > div { display: grid; gap: 3px; min-width: 0; }
+.pref-row > div:first-child { display: grid; gap: 3px; min-width: 0; }
 .pref-row strong { font-size: 14px; font-weight: 550; }
 .pref-row small { line-height: 1.4; }
 .pref-row .segmented { flex: none; }
@@ -1087,6 +1087,8 @@ button.result-person:not(:disabled):hover > svg { color: var(--accent); }
 .account-block h3 svg { color: var(--muted); }
 .account-block-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .profile-identity-edit { display: flex; align-items: center; gap: 12px; }
+.avatar-upload-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.avatar-upload-meta { display: grid; gap: 5px; min-width: 0; }
 .avatar-tone-picker { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; }
 .tone-swatches { display: flex; gap: 8px; }
 .tone-swatch {
@@ -1098,11 +1100,23 @@ button.result-person:not(:disabled):hover > svg { color: var(--accent); }
 
 .social-list, .session-list { display: grid; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--ground); }
 .social-row, .session-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; flex-wrap: wrap;
 }
 .social-row + .social-row, .session-row + .session-row { border-top: 1px solid var(--line); }
 .social-row > div, .session-info { display: grid; gap: 2px; min-width: 0; }
 .social-row strong, .session-info strong { font-size: 13px; font-weight: 550; }
+.social-row-action { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.tg-widget-slot { display: inline-flex; align-items: center; min-height: 28px; }
+.auth-oauth { display: grid; gap: 12px; margin-top: 4px; }
+.auth-oauth-divider {
+  display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px;
+}
+.auth-oauth-divider::before, .auth-oauth-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--line);
+}
+.auth-oauth-buttons { display: grid; gap: 8px; }
+.oauth-btn { text-decoration: none; width: 100%; }
+.auth-tg-wrap { display: flex; justify-content: center; padding-top: 2px; }
 .session-row { justify-content: flex-start; }
 .session-row > svg { color: var(--muted); flex: none; }
 .session-row .state { margin-left: auto; }

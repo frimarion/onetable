@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, CalendarPlus, ChevronLeft, ChevronRight, Clock3, ExternalLink, Eye, EyeOff, LayoutGrid, Plus, Trophy, UserRoundCog, UsersRound, Wallet, X } from 'lucide-react';
-import { useOffice } from './api';
+import { request, useOffice, type OAuthProvidersStatus } from './api';
 import { Brand, Heading, pad, Person, State, Timer, money, startLabel } from './widgets';
 import { Crm, Dialog, bustModal, type Modal } from './crm';
 import { Live } from './Live';
@@ -10,7 +10,7 @@ import { TournamentWeek } from './TournamentWeek';
 import { RatingStudio } from './RatingBuilder';
 import { ClubFinance } from './ClubFinance';
 import { MobileNav } from './MobileNav';
-import { ProfileMenu } from './ProfileMenu';
+import { ProfileMenu, TelegramWidget } from './ProfileMenu';
 import { usePreferences } from './preferences';
 import { ClubAccounts } from './ClubAccounts';
 import { StaffTournament } from './StaffTournament';
@@ -30,19 +30,46 @@ function buildPageNumbers(current: number, total: number): (number | 'ellipsis')
   return pages;
 }
 
-function ProdAuthScreen({ busy, onLogin, onAcceptInvite }: {
+function ProdAuthScreen({ busy, onLogin, onLoginTelegram, onAcceptInvite }: {
   busy: boolean;
   onLogin: (email: string, password: string) => Promise<void>;
+  onLoginTelegram: (auth: Record<string, unknown>) => Promise<void>;
   onAcceptInvite: (token: string, name: string, password: string) => Promise<void>;
 }) {
-  const inviteToken = new URLSearchParams(location.search).get('invite') || '';
+  const params = new URLSearchParams(location.search);
+  const inviteToken = params.get('invite') || '';
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [existing, setExisting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [err, setErr] = useState('');
+  const [err, setErr] = useState(() => params.get('oauth_error') || '');
+  const [providers, setProviders] = useState<OAuthProvidersStatus | null>(null);
+
+  useEffect(() => {
+    if (params.has('oauth_error')) {
+      const next = new URLSearchParams(location.search);
+      next.delete('oauth_error');
+      const qs = next.toString();
+      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
+    }
+    if (!inviteToken) {
+      request<OAuthProvidersStatus>('/api/auth/providers').then(setProviders).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inviteToken]);
+
+  const hasOAuth = !inviteToken && Boolean(providers && (providers.telegram.enabled || providers.vk.enabled || providers.yandex.enabled));
+
+  async function handleTelegram(user: Record<string, unknown>) {
+    setErr('');
+    try {
+      await onLoginTelegram(user);
+    } catch (reason) {
+      setErr(reason instanceof Error ? reason.message : 'Ошибка входа через Telegram');
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -98,6 +125,28 @@ function ProdAuthScreen({ busy, onLogin, onAcceptInvite }: {
           {busy ? 'Подождите…' : inviteToken ? 'Активировать доступ' : 'Войти'}
         </button>
       </form>
+      {hasOAuth && providers && (
+        <div className="auth-oauth">
+          <div className="auth-oauth-divider"><span>или войти через</span></div>
+          <div className="auth-oauth-buttons">
+            {providers.vk.enabled && (
+              <a className="button oauth-btn oauth-vk" href={`/api/auth/oauth/vk/start?mode=login&returnTo=${encodeURIComponent(location.pathname)}`}>
+                VK ID
+              </a>
+            )}
+            {providers.yandex.enabled && (
+              <a className="button oauth-btn oauth-yandex" href={`/api/auth/oauth/yandex/start?mode=login&returnTo=${encodeURIComponent(location.pathname)}`}>
+                Яндекс ID
+              </a>
+            )}
+            {providers.telegram.enabled && providers.telegram.botUsername && (
+              <div className="auth-tg-wrap">
+                <TelegramWidget botUsername={providers.telegram.botUsername} size="medium" onAuth={user => { void handleTelegram(user); }} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   </main>;
 }
@@ -107,7 +156,8 @@ export function App() {
   const {
     session, data, busy, error, notice, setNotice, sessions, run, select, external,
     isDoyleLive,
-    prodMode, prodAuth, authChecked, prodLogin, prodAcceptInvite, prodLogout, updateProfileName, waitingForTournament,
+    prodMode, prodAuth, authChecked, prodLogin, prodLoginTelegram, prodAcceptInvite, prodLogout,
+    updateProfile, setIdentities, waitingForTournament,
   } = office;
   const { prefs } = usePreferences();
   const [view, setView] = useState<View>();
@@ -118,18 +168,38 @@ export function App() {
     setTournamentsPage(1);
   }, [session?.club.id, isDoyleLive, prefs.tournamentsPerPage]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const linked = params.get('oauth');
+    const oauthErr = params.get('oauth_error');
+    if (linked?.startsWith('linked:')) {
+      const names: Record<string, string> = { vk: 'VK ID', yandex: 'Яндекс ID', telegram: 'Telegram' };
+      const p = linked.slice(7);
+      setNotice(`${names[p] || p} успешно привязан к аккаунту`);
+      params.delete('oauth');
+      const qs = params.toString();
+      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
+    } else if (oauthErr && prodAuth) {
+      setNotice(oauthErr);
+      params.delete('oauth_error');
+      const qs = params.toString();
+      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
+    }
+  }, [prodAuth, setNotice]);
+
   const profileControl = (
     <ProfileMenu
       prodMode={prodMode}
       prodAuth={prodAuth}
       onLogout={prodMode && prodAuth ? () => { void prodLogout(); } : undefined}
-      onSaveName={async nextName => { await updateProfileName(nextName); }}
+      onUpdateProfile={async patch => { await updateProfile(patch); }}
+      onIdentitiesChange={setIdentities}
     />
   );
   const open = (next: Modal) => { setNotice(''); setModal(next); };
   const admin = sessions.find(item => item.role === 'admin' && item.club.id === session?.club.id);
   if (prodMode && authChecked && ((!prodAuth && !error) || new URLSearchParams(location.search).has('invite'))) {
-    return <ProdAuthScreen busy={busy} onLogin={prodLogin} onAcceptInvite={prodAcceptInvite} />;
+    return <ProdAuthScreen busy={busy} onLogin={prodLogin} onLoginTelegram={prodLoginTelegram} onAcceptInvite={prodAcceptInvite} />;
   }
 
   const accounts = prodAuth?.role === 'owner';

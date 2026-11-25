@@ -6,7 +6,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "start": "node server/http.ts",
-    "test": "node --test server/tournament.test.ts server/doyleCommands.test.ts server/workspace.test.ts"
+    "test": "node --test server/tournament.test.ts server/doyleCommands.test.ts server/workspace.test.ts server/oauth.test.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.0",

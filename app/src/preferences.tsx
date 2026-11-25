@@ -13,6 +13,7 @@ export type UserPreferences = {
   timerSound: boolean;
   avatarTone: AvatarTone;
   demoName: string;
+  demoAvatar: string;
 };
 
 const STORAGE_KEY = 'onetable-prefs';
@@ -25,6 +26,7 @@ export const DEFAULT_PREFS: UserPreferences = {
   timerSound: true,
   avatarTone: 'default',
   demoName: '',
+  demoAvatar: '',
 };
 
 function sanitizePrefs(raw: unknown): UserPreferences {
@@ -40,7 +42,9 @@ function sanitizePrefs(raw: unknown): UserPreferences {
       ? obj.avatarTone
       : 'default';
   const demoName = typeof obj.demoName === 'string' ? obj.demoName.slice(0, 80) : '';
-  return { density, startView, tournamentsPerPage, reducedMotion, timerSound, avatarTone, demoName };
+  const demoAvatar = typeof obj.demoAvatar === 'string' && obj.demoAvatar.startsWith('data:image/') && obj.demoAvatar.length <= 160_000
+    ? obj.demoAvatar : '';
+  return { density, startView, tournamentsPerPage, reducedMotion, timerSound, avatarTone, demoName, demoAvatar };
 }
 
 function loadPrefs(): UserPreferences {

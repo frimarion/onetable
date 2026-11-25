@@ -5,11 +5,27 @@ import type { DoyleRows } from '../shared/doyleQueries';
 import { mapDoyleSnapshot } from './doyleAdapter';
 import { CLUB_HEADER, DOYLE_CLUB_ID, workspaceClubId, workspacePath } from '../shared/workspace';
 
+export type OAuthProvider = 'telegram' | 'vk' | 'yandex';
+
+export type LinkedIdentity = {
+  provider: OAuthProvider;
+  username: string;
+  displayName: string;
+  createdAt: number;
+};
+
+export type OAuthProvidersStatus = {
+  telegram: { enabled: boolean; botUsername: string };
+  vk: { enabled: boolean };
+  yandex: { enabled: boolean };
+};
+
 export type ProdAuthState = {
-  user: { id: string; email: string; name: string; isSuperadmin: boolean };
+  user: { id: string; email: string; name: string; avatarUrl?: string; isSuperadmin: boolean };
   role: MemberRole;
   session: Session;
   memberships: { club: Session['club']; role: MemberRole; tableNo: number | null }[];
+  identities?: LinkedIdentity[];
   doyleAccess?: boolean;
   doyleWrite?: boolean;
   doyleUnavailable?: boolean;
@@ -370,14 +386,30 @@ export function useOffice(doyleTvTournament?: string) {
       setBusy(false);
     }
   };
-  const updateProfileName = async (name: string) => {
+  const updateProfile = async (patch: { name?: string; avatarUrl?: string }) => {
     const res = await request<{ user: ProdAuthState['user'] }>('/api/auth/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(patch),
     });
     setProdAuth(prev => prev ? { ...prev, user: res.user } : prev);
     return res.user;
+  };
+  const setIdentities = (identities: LinkedIdentity[]) => {
+    setProdAuth(prev => prev ? { ...prev, identities } : prev);
+  };
+  const prodLoginTelegram = async (auth: Record<string, unknown>) => {
+    setBusy(true);
+    try {
+      await request('/api/auth/oauth/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'login', auth }),
+      });
+      await loadProdMe();
+    } finally {
+      setBusy(false);
+    }
   };
   return {
     session: activeSession,
@@ -397,9 +429,11 @@ export function useOffice(doyleTvTournament?: string) {
     prodAuth,
     authChecked,
     prodLogin,
+    prodLoginTelegram,
     prodAcceptInvite,
     prodLogout,
-    updateProfileName,
+    updateProfile,
+    setIdentities,
     waitingForTournament: prodMode && !isDoyleLive && !id,
     setId: (next: string) => { if (!inFlight.current) { setId(next); setError(''); } },
   };

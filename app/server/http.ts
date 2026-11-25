@@ -4,10 +4,15 @@ import { extname, join, normalize, resolve } from 'node:path';
 import type { Command } from '../shared/model.ts';
 import { PgAdapter } from './pgAdapter.ts';
 import {
-  acceptInvite, changeUserPassword, clubAccounts, createInvite, issueTvToken, listUserSessions, loginWithPassword,
-  logoutSession, removeClubAccess, parseCookies, resolveSession, resolveTvToken, revokeOtherSessions,
-  SESSION_COOKIE, sessionCookieHeader, switchSessionClub, updateUserProfile,
+  acceptInvite, changeUserPassword, clubAccounts, createInvite, issueTvToken, linkUserIdentity, listUserIdentities,
+  listUserSessions, loginWithIdentity, loginWithPassword, logoutSession, removeClubAccess, parseCookies,
+  resolveSession, resolveTvToken, revokeOtherSessions, SESSION_COOKIE, sessionCookieHeader, switchSessionClub,
+  unlinkUserIdentity, updateUserProfile,
 } from './auth.ts';
+import {
+  completeOAuthFlow, OAUTH_STATE_COOKIE, oauthProviderStatus, oauthStateCookieHeader, startOAuthFlow,
+  verifyTelegramLogin, type OAuthProvider,
+} from './oauth.ts';
 import { command, DomainError, snapshot } from './tournament.ts';
 import { publicSchedule } from './definitions.ts';
 import { onlineRegistration } from './registration.ts';
@@ -56,7 +61,7 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   for await (const chunk of req) {
     const bytes = Buffer.from(chunk);
     size += bytes.length;
-    if (size > 128_000) throw new DomainError('Запрос слишком большой', 413);
+    if (size > 256_000) throw new DomainError('Запрос слишком большой', 413);
     chunks.push(bytes);
   }
   if (!chunks.length) return {};
@@ -132,26 +137,121 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   }
 
   // ── Авторизация ────────────────────────────────────────────────────────────
+  if (method === 'GET' && url.pathname === '/api/auth/providers') {
+    return sendJson(res, 200, oauthProviderStatus());
+  }
+
   if (method === 'GET' && url.pathname === '/api/auth/me') {
     const ctx = await resolveSession(pg, rawSessionToken, activeClub);
     if (!ctx) return sendJson(res, 401, { error: 'Требуется вход' });
     const doyle = usesDoyleData(ctx);
-    const defaultTournament = doyle ? null : (await pg.forClub(ctx.club.id).query<{ id: string }>(
-      `SELECT id FROM tournaments WHERE club_id=$1 AND ($2::boolean OR state<>'draft')
-       ORDER BY CASE state WHEN 'live' THEN 0 WHEN 'scheduled' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, starts_at NULLS LAST, id LIMIT 1`,
-      [ctx.club.id, ctx.session.role === 'admin'],
-    )).rows[0]?.id ?? null;
+    const [defaultTournament, identities] = await Promise.all([
+      doyle ? Promise.resolve(null) : pg.forClub(ctx.club.id).query<{ id: string }>(
+        `SELECT id FROM tournaments WHERE club_id=$1 AND ($2::boolean OR state<>'draft')
+         ORDER BY CASE state WHEN 'live' THEN 0 WHEN 'scheduled' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, starts_at NULLS LAST, id LIMIT 1`,
+        [ctx.club.id, ctx.session.role === 'admin'],
+      ).then(r => r.rows[0]?.id ?? null),
+      listUserIdentities(pg, ctx.user.id),
+    ]);
     return sendJson(res, 200, {
       user: ctx.user,
       club: ctx.club,
       role: ctx.memberRole,
       session: ctx.session,
       memberships: ctx.memberships,
+      identities,
       defaultTournamentId: defaultTournament,
       doyleUnavailable: doyle && !hasDoyleAccess(ctx),
       doyleAccess: hasDoyleAccess(ctx),
       doyleWrite: canWriteDoyle(ctx),
     });
+  }
+
+  if (method === 'POST' && url.pathname === '/api/auth/oauth/telegram') {
+    checkRateLimit('oauth:' + ip, 15, 60_000);
+    const body = await readJson(req);
+    const mode = body.mode === 'link' ? 'link' : 'login';
+    const rawTelegram = (body.auth && typeof body.auth === 'object' ? body.auth : body) as Record<string, unknown>;
+    const identity = verifyTelegramLogin(rawTelegram);
+    if (mode === 'link') {
+      const ctx = await resolveSession(pg, rawSessionToken, activeClub);
+      if (!ctx) return sendJson(res, 401, { error: 'Требуется вход в кабинет' });
+      const identities = await linkUserIdentity(pg, ctx, identity, ip);
+      return sendJson(res, 200, { identities });
+    }
+    const { token, context } = await loginWithIdentity(pg, identity, { ip, userAgent: ua });
+    return sendJson(res, 200, {
+      user: context.user,
+      club: context.club,
+      role: context.memberRole,
+      session: context.session,
+      memberships: context.memberships,
+    }, { 'Set-Cookie': sessionCookieHeader(token, SECURE_COOKIES) });
+  }
+
+  const oauthStart = /^\/api\/auth\/oauth\/(vk|yandex)\/start$/.exec(url.pathname);
+  if (method === 'GET' && oauthStart) {
+    const provider = oauthStart[1] as 'vk' | 'yandex';
+    const mode = url.searchParams.get('mode') === 'link' ? 'link' : 'login';
+    const returnTo = url.searchParams.get('returnTo') || '/';
+    if (mode === 'link') {
+      const ctx = await resolveSession(pg, rawSessionToken, activeClub);
+      if (!ctx) {
+        res.writeHead(302, { Location: '/?oauth_error=' + encodeURIComponent('Сначала войдите в кабинет') });
+        res.end();
+        return;
+      }
+    }
+    const proto = String(req.headers['x-forwarded-proto'] || (SECURE_COOKIES ? 'https' : 'http')).split(',')[0].trim();
+    const origin = `${proto}://${req.headers.host || 'app.onetable.pro'}`;
+    try {
+      const { authorizeUrl, state } = startOAuthFlow(provider, mode, origin, returnTo);
+      res.writeHead(302, {
+        Location: authorizeUrl,
+        'Set-Cookie': oauthStateCookieHeader(state, SECURE_COOKIES),
+        'Cache-Control': 'no-store',
+      });
+      res.end();
+      return;
+    } catch (reason) {
+      const msg = reason instanceof DomainError ? reason.message : 'Провайдер недоступен';
+      res.writeHead(302, { Location: `${returnTo.startsWith('/') ? returnTo : '/'}?oauth_error=${encodeURIComponent(msg)}` });
+      res.end();
+      return;
+    }
+  }
+
+  const oauthCb = /^\/api\/auth\/oauth\/(vk|yandex)\/callback$/.exec(url.pathname);
+  if (method === 'GET' && oauthCb) {
+    const provider = oauthCb[1] as 'vk' | 'yandex';
+    const clearStateCookie = oauthStateCookieHeader('', SECURE_COOKIES, true);
+    try {
+      const { mode, returnTo, identity } = await completeOAuthFlow(provider, url.searchParams, cookies[OAUTH_STATE_COOKIE]);
+      if (mode === 'link') {
+        const ctx = await resolveSession(pg, rawSessionToken, activeClub);
+        if (!ctx) throw new DomainError('Сессия истекла. Войдите снова и повторите привязку.', 401);
+        await linkUserIdentity(pg, ctx, identity, ip);
+        const sep = returnTo.includes('?') ? '&' : '?';
+        res.writeHead(302, { Location: `${returnTo}${sep}oauth=linked:${provider}`, 'Set-Cookie': clearStateCookie });
+        res.end();
+        return;
+      }
+      const { token } = await loginWithIdentity(pg, identity, { ip, userAgent: ua });
+      res.writeHead(302, {
+        Location: returnTo,
+        'Set-Cookie': [sessionCookieHeader(token, SECURE_COOKIES), clearStateCookie],
+      });
+      res.end();
+      return;
+    } catch (reason) {
+      const msg = reason instanceof DomainError ? reason.message : 'Не удалось завершить вход через соцсеть';
+      res.writeHead(302, {
+        Location: '/?oauth_error=' + encodeURIComponent(msg),
+        'Set-Cookie': clearStateCookie,
+      });
+      res.end();
+      return;
+    }
   }
 
   if (method === 'POST' && url.pathname === '/api/auth/login') {
@@ -255,8 +355,16 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
 
   if (method === 'PATCH' && url.pathname === '/api/auth/profile') {
     const body = await readJson(req);
-    const user = await updateUserProfile(pg, ctx, String(body.name || ''), ip);
+    const patch: { name?: string; avatarUrl?: string } = {};
+    if (body.name !== undefined) patch.name = String(body.name);
+    if (body.avatarUrl !== undefined) patch.avatarUrl = body.avatarUrl === null ? '' : String(body.avatarUrl);
+    const user = await updateUserProfile(pg, ctx, patch, ip);
     return sendJson(res, 200, { user });
+  }
+  const unlinkMatch = /^\/api\/auth\/identities\/(telegram|vk|yandex)$/.exec(url.pathname);
+  if (method === 'DELETE' && unlinkMatch) {
+    const identities = await unlinkUserIdentity(pg, ctx, unlinkMatch[1] as OAuthProvider, ip);
+    return sendJson(res, 200, { identities });
   }
   if (method === 'POST' && url.pathname === '/api/auth/password') {
     checkRateLimit('password:' + ctx.user.id, 5, 60_000);

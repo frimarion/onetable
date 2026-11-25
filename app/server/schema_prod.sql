@@ -14,9 +14,25 @@ CREATE TABLE IF NOT EXISTS users (
   failed_logins  integer NOT NULL DEFAULT 0,
   locked_until   bigint,
   created_at     bigint NOT NULL,
-  last_login_at  bigint
+  last_login_at  bigint,
+  avatar_url     text NOT NULL DEFAULT ''
 );
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url text NOT NULL DEFAULT '';
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower ON users (lower(email));
+
+-- Привязанные внешние способы входа (Telegram, VK ID, Яндекс ID)
+CREATE TABLE IF NOT EXISTS user_identities (
+  provider          text NOT NULL CHECK (provider IN ('telegram', 'vk', 'yandex')),
+  provider_user_id  text NOT NULL,
+  user_id           text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  username          text NOT NULL DEFAULT '',
+  display_name      text NOT NULL DEFAULT '',
+  avatar_url        text NOT NULL DEFAULT '',
+  created_at        bigint NOT NULL,
+  PRIMARY KEY (provider, provider_user_id),
+  UNIQUE (user_id, provider)
+);
+CREATE INDEX IF NOT EXISTS idx_user_identities_user ON user_identities (user_id);
 
 CREATE TABLE IF NOT EXISTS club_members (
   club_id     text NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,

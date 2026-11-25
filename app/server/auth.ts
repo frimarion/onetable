@@ -4,6 +4,7 @@ import type { ClubAccounts, MemberRole } from '../shared/access.ts';
 import type { Club, Session } from '../shared/model.ts';
 import type { PgAdapter } from './pgAdapter.ts';
 import { DomainError } from './validation.ts';
+import type { OAuthProvider, VerifiedIdentity } from './oauth.ts';
 
 export type { MemberRole } from '../shared/access.ts';
 
@@ -11,7 +12,15 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string;
+  avatarUrl: string;
   isSuperadmin: boolean;
+};
+
+export type LinkedIdentityInfo = {
+  provider: OAuthProvider;
+  username: string;
+  displayName: string;
+  createdAt: number;
 };
 
 export type Membership = {
@@ -113,10 +122,10 @@ export async function loginWithPassword(
 
   return pg.systemTransaction(async tx => {
     const userRow = (await tx.query<{
-      id: string; email: string; name: string; password_hash: string;
+      id: string; email: string; name: string; avatar_url: string; password_hash: string;
       is_superadmin: boolean; disabled: boolean; failed_logins: number; locked_until: string | null;
     }>(
-      'SELECT id,email,name,password_hash,is_superadmin,disabled,failed_logins,locked_until FROM users WHERE lower(email)=$1 FOR UPDATE',
+      'SELECT id,email,name,avatar_url,password_hash,is_superadmin,disabled,failed_logins,locked_until FROM users WHERE lower(email)=$1 FOR UPDATE',
       [normEmail],
     )).rows[0];
 
@@ -181,7 +190,7 @@ export async function loginWithPassword(
       ['login_ok', userRow.id, primary.club.id, normEmail, meta.ip, now],
     );
 
-    const user: AuthUser = { id: userRow.id, email: userRow.email, name: userRow.name, isSuperadmin: userRow.is_superadmin };
+    const user: AuthUser = { id: userRow.id, email: userRow.email, name: userRow.name, avatarUrl: userRow.avatar_url || '', isSuperadmin: userRow.is_superadmin };
     return {
       token,
       context: {
@@ -209,10 +218,10 @@ export async function resolveSession(pg: PgAdapter, rawToken: string | undefined
 
   return pg.systemTransaction(async tx => {
     const row = (await tx.query<{
-      user_id: string; email: string; name: string; is_superadmin: boolean; disabled: boolean;
+      user_id: string; email: string; name: string; avatar_url: string; is_superadmin: boolean; disabled: boolean;
       club_id: string; expires_at: string;
     }>(
-      `SELECT s.user_id, u.email, u.name, u.is_superadmin, u.disabled, s.club_id, s.expires_at
+      `SELECT s.user_id, u.email, u.name, u.avatar_url, u.is_superadmin, u.disabled, s.club_id, s.expires_at
          FROM auth_sessions s JOIN users u ON u.id = s.user_id
         WHERE s.token_hash = $1`,
       [tokenHash],
@@ -244,7 +253,7 @@ export async function resolveSession(pg: PgAdapter, rawToken: string | undefined
     if (!current) return null;
 
     return {
-      user: { id: row.user_id, email: row.email, name: row.name, isSuperadmin: row.is_superadmin },
+      user: { id: row.user_id, email: row.email, name: row.name, avatarUrl: row.avatar_url || '', isSuperadmin: row.is_superadmin },
       club: current.club,
       memberRole: current.role,
       tableNo: current.tableNo,
@@ -448,18 +457,179 @@ export type ActiveSessionInfo = {
   userAgent: string;
 };
 
-export async function updateUserProfile(pg: PgAdapter, actor: AuthContext, name: string, ip: string): Promise<AuthUser> {
-  const cleanName = String(name || '').trim().slice(0, 80);
-  if (cleanName.length < 2) throw new DomainError('Имя должно содержать минимум 2 символа', 400);
+export function validateAvatarUrl(raw: unknown): string {
+  if (raw === '' || raw === null) return '';
+  if (typeof raw !== 'string') throw new DomainError('Некорректный формат аватарки', 400);
+  if (raw.length > 160_000) throw new DomainError('Аватарка слишком тяжёлая (максимум ~120 КБ)', 400);
+  if (!/^data:image\/(webp|jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(raw)) {
+    throw new DomainError('Поддерживаются только изображения WebP, JPEG или PNG', 400);
+  }
+  return raw;
+}
+
+export async function updateUserProfile(
+  pg: PgAdapter,
+  actor: AuthContext,
+  patch: { name?: string; avatarUrl?: string },
+  ip: string,
+): Promise<AuthUser> {
+  const nextName = patch.name !== undefined ? String(patch.name).trim().slice(0, 80) : actor.user.name;
+  if (patch.name !== undefined && nextName.length < 2) {
+    throw new DomainError('Имя должно содержать минимум 2 символа', 400);
+  }
+  const nextAvatar = patch.avatarUrl !== undefined ? validateAvatarUrl(patch.avatarUrl) : actor.user.avatarUrl;
   const now = Date.now();
   await pg.systemTransaction(async tx => {
-    await tx.query('UPDATE users SET name=$2 WHERE id=$1', [actor.user.id, cleanName]);
+    await tx.query('UPDATE users SET name=$2, avatar_url=$3 WHERE id=$1', [actor.user.id, nextName, nextAvatar]);
     await tx.query(
       'INSERT INTO auth_audit_log (event,user_id,club_id,email,ip,detail,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      ['profile_updated', actor.user.id, actor.club.id, actor.user.email, ip, cleanName, now],
+      ['profile_updated', actor.user.id, actor.club.id, actor.user.email, ip, nextName, now],
     );
   });
-  return { ...actor.user, name: cleanName };
+  return { ...actor.user, name: nextName, avatarUrl: nextAvatar };
+}
+
+export async function listUserIdentities(pg: PgAdapter, userId: string): Promise<LinkedIdentityInfo[]> {
+  return pg.systemTransaction(async tx => {
+    const rows = (await tx.query<{
+      provider: OAuthProvider; username: string; display_name: string; created_at: string;
+    }>(
+      'SELECT provider, username, display_name, created_at FROM user_identities WHERE user_id=$1 ORDER BY created_at',
+      [userId],
+    )).rows;
+    return rows.map(row => ({
+      provider: row.provider,
+      username: row.username,
+      displayName: row.display_name,
+      createdAt: Number(row.created_at),
+    }));
+  });
+}
+
+export async function linkUserIdentity(
+  pg: PgAdapter,
+  actor: AuthContext,
+  identity: VerifiedIdentity,
+  ip: string,
+): Promise<LinkedIdentityInfo[]> {
+  const now = Date.now();
+  await pg.systemTransaction(async tx => {
+    const taken = (await tx.query<{ user_id: string }>(
+      'SELECT user_id FROM user_identities WHERE provider=$1 AND provider_user_id=$2',
+      [identity.provider, identity.providerUserId],
+    )).rows[0];
+    if (taken && taken.user_id !== actor.user.id) {
+      throw new DomainError('Этот аккаунт уже привязан к другой учётной записи OneTable', 409);
+    }
+    await tx.query(
+      `INSERT INTO user_identities (provider, provider_user_id, user_id, username, display_name, avatar_url, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (user_id, provider) DO UPDATE
+       SET provider_user_id=EXCLUDED.provider_user_id, username=EXCLUDED.username,
+           display_name=EXCLUDED.display_name, avatar_url=EXCLUDED.avatar_url, created_at=EXCLUDED.created_at`,
+      [identity.provider, identity.providerUserId, actor.user.id, identity.username, identity.displayName, identity.avatarUrl, now],
+    );
+    await tx.query(
+      'INSERT INTO auth_audit_log (event,user_id,club_id,email,ip,detail,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      ['identity_linked', actor.user.id, actor.club.id, actor.user.email, ip, identity.provider, now],
+    );
+  });
+  return listUserIdentities(pg, actor.user.id);
+}
+
+export async function unlinkUserIdentity(
+  pg: PgAdapter,
+  actor: AuthContext,
+  provider: OAuthProvider,
+  ip: string,
+): Promise<LinkedIdentityInfo[]> {
+  if (!['telegram', 'vk', 'yandex'].includes(provider)) throw new DomainError('Неизвестный провайдер', 400);
+  const now = Date.now();
+  await pg.systemTransaction(async tx => {
+    await tx.query('DELETE FROM user_identities WHERE user_id=$1 AND provider=$2', [actor.user.id, provider]);
+    await tx.query(
+      'INSERT INTO auth_audit_log (event,user_id,club_id,email,ip,detail,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      ['identity_unlinked', actor.user.id, actor.club.id, actor.user.email, ip, provider, now],
+    );
+  });
+  return listUserIdentities(pg, actor.user.id);
+}
+
+export async function loginWithIdentity(
+  pg: PgAdapter,
+  identity: VerifiedIdentity,
+  meta: { ip: string; userAgent: string },
+  preferredClubId?: string,
+): Promise<{ token: string; context: AuthContext }> {
+  const now = Date.now();
+  return pg.systemTransaction(async tx => {
+    const userRow = (await tx.query<{
+      id: string; email: string; name: string; avatar_url: string; is_superadmin: boolean; disabled: boolean;
+    }>(
+      `SELECT u.id, u.email, u.name, u.avatar_url, u.is_superadmin, u.disabled
+         FROM user_identities i JOIN users u ON u.id = i.user_id
+        WHERE i.provider=$1 AND i.provider_user_id=$2`,
+      [identity.provider, identity.providerUserId],
+    )).rows[0];
+    if (!userRow || userRow.disabled) {
+      await tx.query(
+        'INSERT INTO auth_audit_log (event,email,ip,detail,created_at) VALUES ($1,$2,$3,$4,$5)',
+        ['oauth_login_unlinked', identity.username || identity.providerUserId, meta.ip, identity.provider, now],
+      );
+      throw new DomainError('Этот аккаунт ещё не привязан к OneTable. Войдите по email и привяжите его в настройках профиля.', 401);
+    }
+
+    const memberships = (await tx.query<{
+      club_id: string; name: string; venue: string; accent: string; role: MemberRole; table_no: number | null;
+    }>(
+      `SELECT m.club_id, c.name, c.venue, c.accent, m.role, m.table_no
+         FROM club_members m JOIN clubs c ON c.id = m.club_id
+        WHERE m.user_id = $1 AND m.active
+        ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 WHEN 'floor' THEN 2 ELSE 3 END, c.name`,
+      [userRow.id],
+    )).rows.map(r => ({
+      club: { id: r.club_id, name: r.name, venue: r.venue, accent: r.accent },
+      role: r.role,
+      tableNo: r.table_no,
+    }));
+    if (!memberships.length) {
+      throw new DomainError('У вашей учётной записи нет активного доступа ни к одному клубу', 403);
+    }
+
+    const primary = memberships.find(item => item.club.id === preferredClubId) ?? memberships[0];
+    const token = randomToken(32);
+    const tokenHash = sha256(token);
+
+    await tx.query('UPDATE users SET last_login_at=$2 WHERE id=$1', [userRow.id, now]);
+    await tx.query('DELETE FROM auth_sessions WHERE expires_at < $1', [now]);
+    await tx.query(
+      'INSERT INTO auth_sessions (token_hash,user_id,club_id,created_at,expires_at,ip,user_agent) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [tokenHash, userRow.id, primary.club.id, now, now + SESSION_TTL_MS, meta.ip, meta.userAgent.slice(0, 240)],
+    );
+    await tx.query(
+      'INSERT INTO auth_audit_log (event,user_id,club_id,email,ip,detail,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      ['login_oauth_ok', userRow.id, primary.club.id, userRow.email, meta.ip, identity.provider, now],
+    );
+
+    const user: AuthUser = { id: userRow.id, email: userRow.email, name: userRow.name, avatarUrl: userRow.avatar_url || '', isSuperadmin: userRow.is_superadmin };
+    return {
+      token,
+      context: {
+        user,
+        club: primary.club,
+        memberRole: primary.role,
+        tableNo: primary.tableNo,
+        memberships,
+        session: {
+          token: userRow.id + ':' + primary.club.id,
+          club: primary.club,
+          memberRole: primary.role,
+          role: toSessionRole(primary.role),
+          table: primary.tableNo,
+        },
+      },
+    };
+  });
 }
 
 export async function changeUserPassword(
