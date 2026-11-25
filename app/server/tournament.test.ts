@@ -36,6 +36,19 @@ test('авторассадка заполняет менее занятые ст
   ]);
 });
 
+test('архивный турнир открывается, если сохранённый уровень за пределами структуры', async t => {
+  const db = new PGlite();
+  t.after(() => db.close());
+  await db.exec(await readFile(new URL('./schema.sql', import.meta.url), 'utf8'));
+  await seed(db);
+
+  const admin = sessions.find(item => item.token === 'doyle-admin')!;
+  const data = await snapshot(db, admin, 'doyle-past-1');
+  assert.equal(data.tournament.state, 'finished');
+  assert.equal(data.clock.level, data.structure.length - 1);
+  assert.equal(data.clock.duration, data.structure.at(-1)?.duration);
+});
+
 test('прямая публикация и копирование недели создают новые турниры с чистым состоянием', async t => {
   const db = new PGlite();
   t.after(() => db.close());

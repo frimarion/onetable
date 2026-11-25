@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownRight, ArrowUpRight, Banknote, Calendar, ChevronRight,
   CreditCard, Smartphone, TrendingUp, Wallet,
@@ -146,23 +146,43 @@ function buildRows(data: Snapshot): TournamentFinanceRow[] {
   return rows;
 }
 
-function RevenueChart({ rows, mode }: { rows: TournamentFinanceRow[]; mode: ChartMode }) {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const selected = activeIndex !== null && activeIndex < rows.length ? activeIndex : rows.length - 1;
-  const activeRow = rows[selected];
+function RevenueChart({ rows, mode, openTournament }: {
+  rows: TournamentFinanceRow[];
+  mode: ChartMode;
+  openTournament: (tournamentId: string) => void;
+}) {
+  const chartBox = useRef<HTMLDivElement>(null);
+  const [boxWidth, setBoxWidth] = useState(480);
+  const [previewId, setPreviewId] = useState<string>();
+  const [selectedId, setSelectedId] = useState<string>();
+  const [focusedId, setFocusedId] = useState<string>();
+  const hasRows = rows.length > 0;
+  useLayoutEffect(() => {
+    const box = chartBox.current;
+    if (!box) return;
+    const measure = () => setBoxWidth(box.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [hasRows]);
 
-  if (!rows.length) {
+  if (!hasRows) {
     return <p className="empty">За выбранный период нет турниров для построения графика</p>;
   }
 
-  const width = 760;
-  const height = 248;
-  const padLeft = 58;
-  const padRight = 22;
+  const selectedRow = rows.find(row => row.tournament.id === selectedId);
+  const activeRow = selectedRow ?? rows.find(row => row.tournament.id === previewId) ?? rows[rows.length - 1];
+  const keyboardId = rows.some(row => row.tournament.id === focusedId) ? focusedId : activeRow.tournament.id;
+  const height = 260;
+  const padLeft = 62;
+  const padRight = 32;
   const padTop = 22;
-  const padBottom = 38;
+  const padBottom = 34;
+  const width = Math.max(boxWidth, 480, padLeft + padRight + (rows.length - 1) * 9);
   const plotW = width - padLeft - padRight;
   const plotH = height - padTop - padBottom;
+  const hitWidth = Math.min(44, plotW / Math.max(1, rows.length - 1));
 
   const values = rows.map(row => mode === 'cumulative' ? row.cumulative : row.received);
   const rawMax = Math.max(1, ...values);
@@ -194,37 +214,8 @@ function RevenueChart({ rows, mode }: { rows: TournamentFinanceRow[]; mode: Char
 
   return (
     <div className="finance-chart-wrap">
-      {activeRow && (
-        <div className="finance-chart-inspector" aria-live="polite">
-          <div className="finance-inspector-main">
-            <strong>{activeRow.tournament.name}</strong>
-            <span className="muted">{fullDate(activeRow.dateMs)}</span>
-          </div>
-          <div className="finance-inspector-values">
-            <span className="finance-inspector-total">
-              {mode === 'cumulative' ? 'Накоплено: ' : 'Выручка: '}
-              <strong>{money(mode === 'cumulative' ? activeRow.cumulative : activeRow.received)}</strong>
-              {mode === 'cumulative' && <small className="muted"> (+{money(activeRow.received)})</small>}
-            </span>
-            {mode === 'per_tournament' && activeRow.deltaPct !== null && (
-              <span className={'finance-delta' + (activeRow.deltaPct >= 0 ? ' up' : ' down')}>
-                {activeRow.deltaPct >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                {activeRow.deltaPct >= 0 ? '+' : ''}{activeRow.deltaPct}%
-              </span>
-            )}
-            <span className="finance-inspector-split">
-              <span className="pay-method-text method-card">Карта {money(activeRow.card)}</span>
-              <span className="muted">·</span>
-              <span className="pay-method-text method-cash">Нал {money(activeRow.cash)}</span>
-              <span className="muted">·</span>
-              <span className="pay-method-text method-transfer">Эл. {money(activeRow.transfer)}</span>
-            </span>
-          </div>
-        </div>
-      )}
-
-      <div className="finance-svg-box">
-        <svg viewBox={`0 0 ${width} ${height}`} className="finance-svg" role="img" aria-label={mode === 'cumulative' ? 'График выручки нарастающим итогом' : 'График динамики выручки по турнирам'}>
+      <div className="finance-svg-box" ref={chartBox}>
+        <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="finance-svg" role="group" aria-label={mode === 'cumulative' ? 'График выручки нарастающим итогом' : 'График динамики выручки по турнирам'}>
           <defs>
             <linearGradient id="finance-area-grad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.26" />
@@ -267,28 +258,14 @@ function RevenueChart({ rows, mode }: { rows: TournamentFinanceRow[]; mode: Char
           {points.length > 1 && <path d={lineD} fill="none" className="finance-line" />}
 
           {points.map((pt, index) => {
-            const isSelected = index === selected;
+            const id = pt.row.tournament.id;
+            const isActive = pt.row === activeRow;
             const showXLabel = index === 0 || index === rows.length - 1 || index % labelStep === 0;
-            const hitW = rows.length === 1 ? plotW : Math.max(20, plotW / Math.max(1, rows.length - 1));
             return (
-              <g
-                key={pt.row.tournament.id}
-                className="finance-point-group"
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => setActiveIndex(index)}
-              >
-                {isSelected && (
+              <g key={id}>
+                {isActive && (
                   <line x1={pt.x} x2={pt.x} y1={padTop} y2={padTop + plotH} className="finance-cursor-line" />
                 )}
-                <rect
-                  x={pt.x - hitW / 2}
-                  y={padTop}
-                  width={hitW}
-                  height={plotH}
-                  fill="transparent"
-                  className="finance-hit-area"
-                />
-                <circle cx={pt.x} cy={pt.y} r={isSelected ? 6 : 3.8} className={isSelected ? 'finance-dot active' : 'finance-dot'} />
                 {showXLabel && (
                   <text x={pt.x} y={height - 12} textAnchor="middle" className="finance-axis-label">
                     {shortDate(pt.row.dateMs)}
@@ -297,7 +274,82 @@ function RevenueChart({ rows, mode }: { rows: TournamentFinanceRow[]; mode: Char
               </g>
             );
           })}
+          {points.map((pt, index) => {
+            const id = pt.row.tournament.id;
+            const isActive = pt.row === activeRow;
+            const select = () => {
+              setFocusedId(id);
+              setSelectedId(id);
+            };
+            return (
+              <g
+                key={id}
+                className="finance-point-group"
+                role="button"
+                aria-label={`${pt.row.tournament.name} · ${fullDate(pt.row.dateMs)} · ${money(pt.value)}`}
+                aria-pressed={selectedRow?.tournament.id === id}
+                tabIndex={id === keyboardId ? 0 : -1}
+                onPointerEnter={() => setPreviewId(id)}
+                onFocus={() => { setFocusedId(id); setPreviewId(id); }}
+                onClick={select}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    select();
+                  } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                    event.preventDefault();
+                    const next = index + (event.key === 'ArrowLeft' ? -1 : 1);
+                    chartBox.current?.querySelectorAll<SVGGElement>('.finance-point-group')[next]?.focus();
+                  } else if (event.key === 'Escape') {
+                    setSelectedId(undefined);
+                  }
+                }}
+              >
+                <rect x={pt.x - hitWidth / 2} y={padTop - 8} width={hitWidth} height={plotH + 16} fill="transparent" />
+                <circle cx={pt.x} cy={pt.y} r={isActive ? 5 : 3.5} className={isActive ? 'finance-dot active' : 'finance-dot'} aria-hidden="true" />
+              </g>
+            );
+          })}
         </svg>
+      </div>
+
+      <div className="finance-chart-inspector">
+        <div className="finance-inspector-summary" aria-live="polite">
+          <div className="finance-inspector-main">
+            <strong>{activeRow.tournament.name}</strong>
+            <span className="muted">{fullDate(activeRow.dateMs)}</span>
+          </div>
+          <div className="finance-inspector-values">
+            <span className="finance-inspector-total">
+              {mode === 'cumulative' ? 'Накоплено: ' : 'Выручка: '}
+              <strong>{money(mode === 'cumulative' ? activeRow.cumulative : activeRow.received)}</strong>
+              {mode === 'cumulative' && <small className="muted"> (+{money(activeRow.received)})</small>}
+            </span>
+            {mode === 'per_tournament' && activeRow.deltaPct !== null && (
+              <span className={'finance-delta' + (activeRow.deltaPct >= 0 ? ' up' : ' down')}>
+                {activeRow.deltaPct >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                {activeRow.deltaPct >= 0 ? '+' : ''}{activeRow.deltaPct}%
+              </span>
+            )}
+            <span className="finance-inspector-split">
+              <span className="pay-method-text method-card">Карта {money(activeRow.card)}</span>
+              <span className="muted">·</span>
+              <span className="pay-method-text method-cash">Нал {money(activeRow.cash)}</span>
+              <span className="muted">·</span>
+              <span className="pay-method-text method-transfer">Эл. {money(activeRow.transfer)}</span>
+            </span>
+          </div>
+        </div>
+        {selectedRow && (
+          <button
+            type="button"
+            className="button primary compact"
+            aria-label={`Открыть турнир «${selectedRow.tournament.name}» · ${fullDate(selectedRow.dateMs)}`}
+            onClick={() => openTournament(selectedRow.tournament.id)}
+          >
+            Открыть турнир <ChevronRight size={15} aria-hidden="true" />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -493,7 +545,7 @@ export function ClubFinance({ data, openTournament }: {
             </button>
           </div>
         </div>
-        <RevenueChart rows={filteredRows} mode={chartMode} />
+        <RevenueChart rows={filteredRows} mode={chartMode} openTournament={openTournament} />
       </section>
 
       <section className="panel finance-table-panel" aria-label="Финансы по турнирам">

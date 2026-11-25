@@ -28,7 +28,8 @@ export function clock(row: StateRow, now: number): Clock {
     const duration = Math.max(1, Math.ceil((row.manualBreak.endsAt - startedAt) / 1000));
     return { level: row.level, remaining: duration, duration, startedAt, manualBreak: true };
   }
-  return { level: row.level, remaining: row.remaining, startedAt: row.startedAt === null ? null : Math.min(now, Number(row.startedAt)), duration: structure[row.level].duration, manualBreak: false };
+  const level = Math.min(row.level, structure.length - 1);
+  return { level, remaining: row.remaining, startedAt: row.startedAt === null ? null : Math.min(now, Number(row.startedAt)), duration: structure[level].duration, manualBreak: false };
 }
 
 export async function refreshClock(tx: Transaction, row: StateRow, now: number) {
