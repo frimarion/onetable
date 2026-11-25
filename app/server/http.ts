@@ -10,7 +10,7 @@ import {
   unlinkUserIdentity, updateUserProfile,
 } from './auth.ts';
 import {
-  completeOAuthFlow, OAUTH_STATE_COOKIE, oauthProviderStatus, oauthStateCookieHeader, startOAuthFlow,
+  completeOAuthFlow, OAUTH_STATE_COOKIE, oauthProviderStatus, oauthReturnUrl, oauthStateCookieHeader, startOAuthFlow, takePendingOAuthFlow,
   verifyTelegramLogin, type OAuthProvider,
 } from './oauth.ts';
 import { command, DomainError, snapshot } from './tournament.ts';
@@ -249,7 +249,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
       return;
     } catch (reason) {
       const msg = reason instanceof DomainError ? reason.message : 'Провайдер недоступен';
-      res.writeHead(302, { Location: `${returnTo.startsWith('/') ? returnTo : '/'}?oauth_error=${encodeURIComponent(msg)}` });
+      res.writeHead(302, { Location: oauthReturnUrl(returnTo, ['oauth_error', msg]), 'Cache-Control': 'no-store' });
       res.end();
       return;
     }
@@ -259,14 +259,20 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   if (method === 'GET' && oauthCb) {
     const provider = oauthCb[1] as OAuthProvider;
     const clearStateCookie = oauthStateCookieHeader('', SECURE_COOKIES, true);
+    let returnTo = '/';
     try {
-      const { mode, returnTo, identity } = await completeOAuthFlow(provider, url.searchParams, cookies[OAUTH_STATE_COOKIE]);
-      if (mode === 'link') {
+      const pending = takePendingOAuthFlow(provider, url.searchParams, cookies[OAUTH_STATE_COOKIE]);
+      returnTo = pending.returnTo;
+      const identity = await completeOAuthFlow(pending, url.searchParams);
+      if (pending.mode === 'link') {
         const ctx = await resolveSession(pg, rawSessionToken, activeClub);
         if (!ctx) throw new DomainError('Сессия истекла. Войдите снова и повторите привязку.', 401);
         await linkUserIdentity(pg, ctx, identity, ip);
-        const sep = returnTo.includes('?') ? '&' : '?';
-        res.writeHead(302, { Location: `${returnTo}${sep}oauth=linked:${provider}`, 'Set-Cookie': clearStateCookie });
+        res.writeHead(302, {
+          Location: oauthReturnUrl(returnTo, ['oauth', `linked:${provider}`]),
+          'Set-Cookie': clearStateCookie,
+          'Cache-Control': 'no-store',
+        });
         res.end();
         return;
       }
@@ -274,6 +280,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
       res.writeHead(302, {
         Location: returnTo,
         'Set-Cookie': [sessionCookieHeader(token, SECURE_COOKIES), clearStateCookie],
+        'Cache-Control': 'no-store',
       });
       res.end();
       return;
@@ -281,8 +288,9 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
       const msg = reason instanceof DomainError ? reason.message : 'Не удалось завершить вход через соцсеть';
       console.error(`[oauth/${provider}] callback failed:`, reason);
       res.writeHead(302, {
-        Location: '/?oauth_error=' + encodeURIComponent(msg),
+        Location: oauthReturnUrl(returnTo, ['oauth_error', msg]),
         'Set-Cookie': clearStateCookie,
+        'Cache-Control': 'no-store',
       });
       res.end();
       return;

@@ -21,6 +21,8 @@ type SessionItem = {
   userAgent: string;
 };
 
+export type OAuthResult = { kind: 'ok' | 'err'; text: string };
+
 const ROLE_LABELS: Record<MemberRole, string> = {
   owner: 'Владелец',
   admin: 'Администратор',
@@ -230,6 +232,7 @@ export function ProfileSettingsDialog({
   avatarUrl,
   email,
   roleLabel,
+  oauthResult,
   onUpdateProfile,
   onIdentitiesChange,
   onClose,
@@ -240,13 +243,14 @@ export function ProfileSettingsDialog({
   avatarUrl: string;
   email: string;
   roleLabel: string;
+  oauthResult?: OAuthResult | null;
   onUpdateProfile: (patch: { name?: string; avatarUrl?: string }) => Promise<void>;
   onIdentitiesChange: (identities: LinkedIdentity[]) => void;
   onClose: () => void;
 }) {
   const { theme, setTheme } = useTheme();
   const { prefs, updatePrefs, resetPrefs } = usePreferences();
-  const [tab, setTab] = useState<'interface' | 'account'>('interface');
+  const [tab, setTab] = useState<'interface' | 'account'>(oauthResult ? 'account' : 'interface');
 
   // Профиль и аватарка
   const [name, setName] = useState(displayName);
@@ -257,8 +261,9 @@ export function ProfileSettingsDialog({
 
   // Способы входа (OAuth)
   const [providers, setProviders] = useState<OAuthProvidersStatus | null>(null);
+  const [providersError, setProvidersError] = useState(false);
   const [oauthBusy, setOauthBusy] = useState<OAuthProvider | null>(null);
-  const [oauthMsg, setOauthMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [oauthMsg, setOauthMsg] = useState<OAuthResult | null>(oauthResult ?? null);
 
   // Пароль
   const [currentPassword, setCurrentPassword] = useState('');
@@ -294,9 +299,10 @@ export function ProfileSettingsDialog({
       .then(res => { if (!cancelled) setSessions(res.sessions || []); })
       .catch(err => { if (!cancelled) setSessionsErr(err instanceof Error ? err.message : 'Не удалось загрузить сессии'); })
       .finally(() => { if (!cancelled) setSessionsLoading(false); });
+    setProvidersError(false);
     request<OAuthProvidersStatus>('/api/auth/providers')
       .then(res => { if (!cancelled) setProviders(res); })
-      .catch(() => {});
+      .catch(() => { if (!cancelled) setProvidersError(true); });
     return () => { cancelled = true; };
   }, [tab, prodMode, prodAuth]);
 
@@ -687,6 +693,8 @@ export function ProfileSettingsDialog({
                             </>
                           ) : !prodMode ? (
                             <span className="state">В рабочем кабинете</span>
+                          ) : !providers ? (
+                            <span className="state">{providersError ? 'Статус недоступен' : 'Проверяем…'}</span>
                           ) : !enabled ? (
                             <span className="state" title={`Добавьте на сервере: ${provider.envHint}`}>Не настроен</span>
                           ) : provider.id === 'telegram' && providers?.telegram.mode !== 'oidc' && providers?.telegram.botUsername ? (
@@ -831,12 +839,16 @@ export function ProfileSettingsDialog({
 export function ProfileMenu({
   prodMode,
   prodAuth,
+  oauthResult,
+  onDismissOAuthResult,
   onLogout,
   onUpdateProfile,
   onIdentitiesChange,
 }: {
   prodMode: boolean;
   prodAuth: ProdAuthState | null;
+  oauthResult: OAuthResult | null;
+  onDismissOAuthResult: () => void;
   onLogout?: () => void;
   onUpdateProfile: (patch: { name?: string; avatarUrl?: string }) => Promise<void>;
   onIdentitiesChange: (identities: LinkedIdentity[]) => void;
@@ -943,7 +955,7 @@ export function ProfileMenu({
         )}
       </div>
 
-      {settingsOpen && (
+      {(settingsOpen || oauthResult) && (
         <ProfileSettingsDialog
           prodMode={prodMode}
           prodAuth={prodAuth}
@@ -951,9 +963,13 @@ export function ProfileMenu({
           avatarUrl={avatarUrl}
           email={email}
           roleLabel={roleLabel}
+          oauthResult={oauthResult}
           onUpdateProfile={handleUpdateProfile}
           onIdentitiesChange={onIdentitiesChange}
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => {
+            setSettingsOpen(false);
+            onDismissOAuthResult();
+          }}
         />
       )}
     </>

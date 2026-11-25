@@ -162,7 +162,7 @@ export function useOffice(doyleTvTournament?: string) {
     }
     if (!resp.ok) throw new Error(body.error || 'Ошибка авторизации');
     if (!doyleTvTournament && !new URLSearchParams(location.search).has('invite')) {
-      history.replaceState(null, '', workspacePath(body.session.club.id));
+      history.replaceState(null, '', workspacePath(body.session.club.id) + location.search + location.hash);
     }
     const { doyleGatewayTicket, ...auth } = body;
     doyleGatewayAccess.current = { ticket: doyleGatewayTicket };

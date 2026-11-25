@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash, createHmac, generateKeyPairSync, sign as cryptoSign } from 'node:crypto';
 import { test } from 'node:test';
-import { oauthProviderStatus, startOAuthFlow, verifyTelegramIdToken, verifyTelegramLogin } from './oauth.ts';
+import {
+  completeOAuthFlow, oauthProviderStatus, oauthReturnUrl, startOAuthFlow,
+  takePendingOAuthFlow, verifyTelegramIdToken, verifyTelegramLogin,
+} from './oauth.ts';
 import { validateAvatarUrl } from './auth.ts';
 
 test('OAuth Telegram Widget: проверяет HMAC-SHA256 подпись и отклоняет подделку/просрочку', () => {
@@ -59,7 +62,7 @@ test('OAuth Telegram OIDC: проверяет RS256 id_token по JWK и отк�
   assert.throws(() => verifyTelegramIdToken(token + 'x', '99887766', [jwk], now), /Недействительная подпись/);
 });
 
-test('startOAuthFlow и oauthProviderStatus: формируют актуальные URL с PKCE для Telegram, VK ID и Яндекс ID', () => {
+test('startOAuthFlow и oauthProviderStatus: формируют актуальные URL с PKCE для Telegram, VK ID и Яндекс ID', async ({ mock }) => {
   const prev = {
     TELEGRAM_CLIENT_ID: process.env.TELEGRAM_CLIENT_ID,
     TELEGRAM_CLIENT_SECRET: process.env.TELEGRAM_CLIENT_SECRET,
@@ -103,6 +106,18 @@ test('startOAuthFlow и oauthProviderStatus: формируют актуальн
     assert.equal(yaUrl.searchParams.get('force_confirm'), 'yes');
     assert.equal(yaUrl.searchParams.get('redirect_uri'), 'https://app.onetable.pro/api/auth/oauth/yandex/callback');
 
+    const callback = new URLSearchParams({ state: tg.state, code: 'telegram-code' });
+    assert.throws(() => takePendingOAuthFlow('telegram', callback, 'other-state'), /устарела/);
+    const pending = takePendingOAuthFlow('telegram', callback, tg.state);
+    assert.equal(pending.returnTo, '/clubs/doyle');
+    assert.throws(() => takePendingOAuthFlow('telegram', callback, tg.state), /истекла/);
+    mock.method(console, 'error', () => {});
+    const fetchMock = mock.method(globalThis, 'fetch', async () => {
+      throw new TypeError('fetch failed', { cause: new Error('ETIMEDOUT') });
+    });
+    await assert.rejects(completeOAuthFlow(pending, callback), /Сервер OneTable не смог связаться с Telegram/);
+    assert.equal(fetchMock.mock.calls[0].arguments[0], 'https://oauth.telegram.org/token');
+
     delete process.env.TELEGRAM_CLIENT_ID;
     delete process.env.TELEGRAM_CLIENT_SECRET;
     process.env.TELEGRAM_BOT_USERNAME = '@onetable_bot';
@@ -116,6 +131,11 @@ test('startOAuthFlow и oauthProviderStatus: формируют актуальн
       else process.env[k] = v;
     }
   }
+});
+
+test('Возврат после OAuth сохраняет адрес кабинета и параметры', () => {
+  assert.equal(oauthReturnUrl('/clubs/doyle?view=crm#tab', ['oauth_error', 'timeout']), '/clubs/doyle?view=crm&oauth_error=timeout#tab');
+  assert.equal(oauthReturnUrl('/redirect/..//external.example'), '/');
 });
 
 test('Аватарка: пропускает лёгкий WebP/JPEG/PNG и отклоняет тяжёлые/невалидные строки', () => {
