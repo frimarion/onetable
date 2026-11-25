@@ -854,7 +854,7 @@ button.result-person:not(:disabled):hover > svg { color: var(--accent); }
 .finance-line { stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 .finance-single-bar { fill: color-mix(in srgb, var(--accent) 26%, transparent); stroke: var(--accent); stroke-width: 2; }
 .finance-cursor-line { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; opacity: .55; }
-.finance-point-group { cursor: pointer; }
+.finance-point-group { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .finance-dot { fill: var(--panel); stroke: var(--accent); stroke-width: 1.7; transition: fill .15s ease; }
 .finance-dot.active { fill: var(--accent); stroke: var(--panel); stroke-width: 1.7; }
 .finance-point-group:focus { outline: none; }
