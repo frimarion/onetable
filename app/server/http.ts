@@ -18,7 +18,8 @@ import { publicSchedule } from './definitions.ts';
 import { onlineRegistration } from './registration.ts';
 import { paymentWorkbook } from './paymentWorkbook.ts';
 import { canWriteDoyle, hasDoyleAccess, readDoyleRows, usesDoyleData, writeDoyleCommand } from './doyle.ts';
-import { CLUB_HEADER } from '../shared/workspace.ts';
+import { CLUB_HEADER, DOYLE_CLUB_ID, DOYLE_GATEWAY_ORIGIN, ONETABLE_APP_ORIGIN } from '../shared/workspace.ts';
+import { issueDoyleReadTicket, redeemDoyleReadTicket } from './doyleGateway.ts';
 import { notifyOfficeUpdate, subscribeToOfficeUpdates } from './officeUpdates.ts';
 
 const PORT = Number(process.env.PORT || 4181);
@@ -26,6 +27,8 @@ const HOST = process.env.HOST || '127.0.0.1';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const SECURE_COOKIES = process.env.COOKIE_SECURE !== '0' && process.env.NODE_ENV === 'production';
 const DIST_DIR = resolve(new URL('../dist', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+const appHost = new URL(ONETABLE_APP_ORIGIN).host;
+const gatewayHost = new URL(DOYLE_GATEWAY_ORIGIN).host;
 
 if (!DATABASE_URL) {
   console.error('Ошибка: переменная окружения DATABASE_URL не задана.');
@@ -130,6 +133,32 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   const rawSessionToken = cookies[SESSION_COOKIE];
   const requestedClub = req.headers[CLUB_HEADER];
   const activeClub = Array.isArray(requestedClub) ? requestedClub.join(',') : requestedClub;
+
+  if (SECURE_COOKIES && method === 'POST' && url.pathname === '/api/doyle/read-ticket' && req.headers.host === appHost) {
+    if (req.headers.origin !== ONETABLE_APP_ORIGIN) throw new DomainError('Недопустимый источник запроса', 403);
+    const ctx = await resolveSession(pg, rawSessionToken, DOYLE_CLUB_ID);
+    if (!ctx || !rawSessionToken) throw new DomainError('Требуется вход в кабинет', 401);
+    if (!hasDoyleAccess(ctx)) throw new DomainError('Нет доступа к данным Doyle', 403);
+    return sendJson(res, 200, { ticket: issueDoyleReadTicket(rawSessionToken) });
+  }
+
+  if (SECURE_COOKIES && url.pathname === '/api/doyle/snapshot' && req.headers.host === gatewayHost && req.headers.origin === ONETABLE_APP_ORIGIN) {
+    res.setHeader('Access-Control-Allow-Origin', ONETABLE_APP_ORIGIN);
+    res.setHeader('Vary', 'Origin');
+    if (method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Methods': 'GET',
+        'Access-Control-Allow-Headers': `Authorization, ${CLUB_HEADER}`,
+        'Access-Control-Max-Age': '600',
+      });
+      return res.end();
+    }
+    if (method !== 'GET') throw new DomainError('Метод недоступен', 405);
+    const sessionToken = redeemDoyleReadTicket(req.headers.authorization);
+    const ctx = await resolveSession(pg, sessionToken, DOYLE_CLUB_ID);
+    if (!ctx) throw new DomainError('Требуется вход в кабинет', 401);
+    return sendJson(res, 200, await readDoyleRows(ctx, pg));
+  }
 
   // /api/demo отключён в продакшене намеренно
   if (url.pathname === '/api/demo') {

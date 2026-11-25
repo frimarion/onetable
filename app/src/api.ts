@@ -3,7 +3,7 @@ import type { MemberRole } from '../shared/access';
 import type { Command, CommandResult, Session, Snapshot } from '../shared/model';
 import type { DoyleRows } from '../shared/doyleQueries';
 import { mapDoyleSnapshot } from './doyleAdapter';
-import { CLUB_HEADER, DOYLE_CLUB_ID, workspaceClubId, workspacePath } from '../shared/workspace';
+import { CLUB_HEADER, DOYLE_CLUB_ID, DOYLE_GATEWAY_ORIGIN, ONETABLE_APP_ORIGIN, workspaceClubId, workspacePath } from '../shared/workspace';
 
 export type OAuthProvider = 'telegram' | 'vk' | 'yandex';
 
@@ -52,6 +52,50 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
   return body as T;
 }
 
+async function loadDoyleRows(headers: Headers, preferGateway: boolean, signal?: AbortSignal) {
+  const path = '/api/doyle/snapshot';
+  if (location.origin !== ONETABLE_APP_ORIGIN) {
+    return { rows: await request<DoyleRows>(path, { headers, signal }), gateway: false };
+  }
+
+  const controller = new AbortController();
+  const snapshotSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+  const read = async (url: string, options: RequestInit, gateway: boolean) => {
+    const rows = await request<DoyleRows>(url, { ...options, signal: snapshotSignal });
+    if (!Array.isArray(rows.tournaments)) throw new Error('Не удалось загрузить данные Doyle');
+    return { rows, gateway };
+  };
+  const direct = () => read(path, { headers }, false);
+  const viaGateway = async () => {
+    const { ticket } = await request<{ ticket: string }>('/api/doyle/read-ticket', { method: 'POST', signal: snapshotSignal });
+    return read(DOYLE_GATEWAY_ORIGIN + path, {
+      credentials: 'omit', redirect: 'error', headers: { Authorization: `Bearer ${ticket}` },
+    }, true);
+  };
+
+  const primary = preferGateway ? viaGateway() : direct();
+  let backupTimer: number | undefined;
+  const backup = new Promise<Awaited<typeof primary>>((resolve, reject) => {
+    const start = () => {
+      if (backupTimer === undefined) return;
+      window.clearTimeout(backupTimer);
+      backupTimer = undefined;
+      (preferGateway ? direct() : viaGateway()).then(resolve, reject);
+    };
+    backupTimer = window.setTimeout(start, 4000);
+    void primary.catch(start);
+  });
+  try {
+    return await Promise.any([primary, backup]);
+  } catch (error) {
+    if (error instanceof AggregateError) throw error.errors[preferGateway ? 1 : 0];
+    throw error;
+  } finally {
+    window.clearTimeout(backupTimer);
+    controller.abort();
+  }
+}
+
 export function useOffice(doyleTvTournament?: string) {
   const [prodMode, setProdMode] = useState(false);
   const [prodAuth, setProdAuth] = useState<ProdAuthState | null>(null);
@@ -65,6 +109,7 @@ export function useOffice(doyleTvTournament?: string) {
   const [busy, setBusy] = useState(false);
   const pending = useRef<{ key: string; id: string } | undefined>(undefined);
   const inFlight = useRef(false);
+  const preferDoyleGateway = useRef(false);
   const prodModeRef = useRef(prodMode);
   prodModeRef.current = prodMode;
 
@@ -124,9 +169,10 @@ export function useOffice(doyleTvTournament?: string) {
   const refresh = useCallback(async (signal?: AbortSignal) => {
     if (isDoyleLive && activeSession) {
       const headers = workspaceHeaders(undefined, activeSession.club.id);
-      const rows = await request<DoyleRows>('/api/doyle/snapshot', { signal, headers });
+      const { rows, gateway } = await loadDoyleRows(headers, preferDoyleGateway.current, signal);
       const next = await mapDoyleSnapshot(activeSession.club, id || null, async resource => rows[resource], rows);
       if (!signal?.aborted) {
+        preferDoyleGateway.current = gateway;
         setSnapshot({ data: next, token: activeToken });
         setId(next.tournament.id);
         setError('');
