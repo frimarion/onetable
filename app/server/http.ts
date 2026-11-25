@@ -279,6 +279,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
       return;
     } catch (reason) {
       const msg = reason instanceof DomainError ? reason.message : 'Не удалось завершить вход через соцсеть';
+      console.error(`[oauth/${provider}] callback failed:`, reason);
       res.writeHead(302, {
         Location: '/?oauth_error=' + encodeURIComponent(msg),
         'Set-Cookie': clearStateCookie,

@@ -298,24 +298,28 @@ export async function completeOAuthFlow(
   if (provider === 'telegram') {
     const clientId = String(process.env.TELEGRAM_CLIENT_ID || '').trim();
     const clientSecret = String(process.env.TELEGRAM_CLIENT_SECRET || '').trim();
+    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`, 'utf8').toString('base64');
     const tokenForm = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
       client_id: clientId,
-      client_secret: clientSecret,
       redirect_uri: pending.redirectUri,
       code_verifier: pending.codeVerifier,
     });
     const tokenResp = await fetch('https://oauth.telegram.org/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${basicAuth}`,
+      },
       body: tokenForm.toString(),
       signal: AbortSignal.timeout(10_000),
     });
     const tokenBody = (await tokenResp.json().catch(() => ({}))) as Record<string, unknown>;
     const idToken = String(tokenBody.id_token || '');
     if (!tokenResp.ok || !idToken) {
-      throw new DomainError(String(tokenBody.error_description || 'Не удалось получить токен Telegram'), 502);
+      console.error('[oauth/telegram] token error:', tokenResp.status, tokenBody);
+      throw new DomainError(String(tokenBody.error_description || tokenBody.error || 'Не удалось получить токен Telegram'), 502);
     }
     let keys = await fetchTelegramJwks(false);
     let identity: VerifiedIdentity;
