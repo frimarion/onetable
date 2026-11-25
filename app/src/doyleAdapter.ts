@@ -1,12 +1,12 @@
-import type { DoyleResource } from '../shared/doyleQueries';
+import type { DoyleOverlay, DoyleResource } from '../shared/doyleQueries';
 import type {
   Club, Entry, JournalItem, Payment, Player, Snapshot, Table, Tournament, Visit,
 } from '../shared/model';
 import {
   defaultConfig, defaultDisplay, formats, type Config, type Level, type MoneyMethod, type Preset, type Result,
 } from '../shared/operations';
-import { baseRatingPresets, defaultRatingScheme } from '../shared/rating';
-import type { BroadcastSummary, CrmData, PipelineStage, PlayerNote, RegistrationRecord } from '../shared/crm';
+import { baseRatingPresets, defaultRatingScheme, type RatingPreset, type RatingScheme } from '../shared/rating';
+import type { BroadcastSummary, CrmData, CrmEvent, CrmTask, MessageChannel, MessageDirection, PipelineStage, PlayerMessage, PlayerNote, RegistrationRecord, TaskKind } from '../shared/crm';
 
 type DoyleTournamentRow = {
   id: number;
@@ -151,6 +151,7 @@ export async function mapDoyleSnapshot(
   club: Club,
   selectedId: string | null,
   read: (resource: DoyleResource) => Promise<unknown[]>,
+  overlay?: DoyleOverlay,
 ): Promise<Snapshot> {
   const now = Date.now();
   const [
@@ -585,25 +586,28 @@ export async function mapDoyleSnapshot(
   }
   const regPlayers = new Set(regsRaw.map(r => String(r.player_id)));
 
+  const metaByPlayer = new Map((overlay?.playerMeta ?? []).map(m => [m.player_id, m]));
   const roster: Player[] = playersRaw.map(p => {
     const pid = String(p.id);
+    const meta = metaByPlayer.get(pid);
     const vCount = Math.max(visitsCountByPlayer.get(pid) ?? 0, p.games_played ?? 0);
-    const stage: PipelineStage = vCount >= 3 ? 'regular' : vCount >= 1 ? 'first_visit' : regPlayers.has(pid) ? 'registered' : 'lead';
+    const autoStage: PipelineStage = vCount >= 3 ? 'regular' : vCount >= 1 ? 'first_visit' : regPlayers.has(pid) ? 'registered' : 'lead';
+    const stage: PipelineStage = (meta?.stage as PipelineStage) || autoStage;
     return {
       id: pid,
       name: p.full_name || p.name,
       nickname: p.name,
       photoUrl: normalizeDoylePhoto(p.photo_url),
-      source: p.tg_id ? 'Telegram' : 'Клуб',
+      source: meta?.source || (p.tg_id ? 'Telegram' : 'Клуб'),
       note: p.bio || '',
       tags: (tagsByPlayer.get(pid) ?? []).join(', '),
-      phone: '',
+      phone: meta?.phone || '',
       telegram: p.tg_username ? '@' + p.tg_username.replace(/^@/, '') : p.tg_id ? `id:${p.tg_id}` : '',
-      instagram: '',
+      instagram: meta?.instagram || '',
       registeredAt: toMs(p.registered_at, now),
       telegramConsent: Boolean(p.marketing_consent),
       stage,
-      owner: 'Администратор',
+      owner: meta?.owner || 'Администратор',
     };
   });
 
@@ -651,13 +655,46 @@ export async function mapDoyleSnapshot(
     sentAt: toMs(b.created_at, now),
   }));
 
+  const messages: PlayerMessage[] = (overlay?.crmMessages ?? []).map(m => ({
+    id: m.id,
+    playerId: m.player_id,
+    direction: m.direction as MessageDirection,
+    channel: m.channel as MessageChannel,
+    author: m.author || 'Администратор',
+    body: m.body,
+    createdAt: m.created_at,
+  }));
+  const tasks: CrmTask[] = (overlay?.crmTasks ?? []).map(t => ({
+    id: t.id,
+    playerId: t.player_id,
+    kind: t.kind as TaskKind,
+    title: t.title,
+    assignee: t.assignee || 'Администратор',
+    dueAt: t.due_at,
+    completedAt: t.completed_at,
+    result: t.result,
+    createdAt: t.created_at,
+  }));
+  const events: CrmEvent[] = (overlay?.crmEvents ?? []).map(e => ({
+    id: e.id,
+    playerId: e.player_id,
+    kind: e.kind,
+    actor: e.actor || 'Администратор',
+    summary: e.summary,
+    createdAt: e.created_at,
+  }));
+  const customRatingPresets: RatingPreset[] = (overlay?.ratingPresets ?? []).map(p => ({
+    name: p.name,
+    scheme: p.scheme as RatingScheme,
+  }));
+
   const crm: CrmData = {
     notes,
-    messages: [],
+    messages,
     broadcasts,
     registrations,
-    tasks: [],
-    events: [],
+    tasks,
+    events,
     botConfigured: true,
     rateLimitPerSec: 25,
   };
@@ -712,7 +749,7 @@ export async function mapDoyleSnapshot(
     waitlist: { people: [], canAdmit: false },
     structure,
     presets,
-    ratingPresets: baseRatingPresets,
+    ratingPresets: [...baseRatingPresets, ...customRatingPresets.filter(c => !baseRatingPresets.some(b => b.name === c.name))],
     manualStats: {
       entered: Math.max(0, Number((activeState.onetableManualStats as Record<string, unknown> | undefined)?.entered ?? 0) || 0),
       reentries: Math.max(0, Number((activeState.onetableManualStats as Record<string, unknown> | undefined)?.reentries ?? 0) || 0),

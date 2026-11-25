@@ -123,7 +123,7 @@ export function useOffice(doyleTvTournament?: string) {
     if (isDoyleLive && activeSession) {
       const headers = workspaceHeaders(undefined, activeSession.club.id);
       const rows = await request<DoyleRows>('/api/doyle/snapshot', { signal, headers });
-      const next = await mapDoyleSnapshot(activeSession.club, id || null, async resource => rows[resource]);
+      const next = await mapDoyleSnapshot(activeSession.club, id || null, async resource => rows[resource], rows);
       if (!signal?.aborted) {
         setSnapshot({ data: next, token: activeToken });
         setId(next.tournament.id);
@@ -403,7 +403,9 @@ function applyOptimistic(data: Snapshot, action: Command): Snapshot | null {
       setSnapshot({ data: optimistic, token: previousSnapshot.token });
     }
     const endpoint = isDoyleLive
-      ? '/api/doyle/tournaments/' + id + '/commands'
+      ? (action.type === 'createTournament' || action.type === 'copyTournamentWeek' || !id
+        ? '/api/doyle/commands'
+        : '/api/doyle/tournaments/' + id + '/commands')
       : action.type === 'createTournament' || action.type === 'copyTournamentWeek'
         ? '/api/clubs/' + activeSession?.club.id + '/tournaments' : path + '/commands';
     const key = JSON.stringify([activeToken, endpoint, action]);

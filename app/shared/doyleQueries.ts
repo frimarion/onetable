@@ -12,5 +12,12 @@ export const doyleQueries = {
 } as const;
 
 export type DoyleResource = keyof typeof doyleQueries;
-export type DoyleRows = Record<DoyleResource, unknown[]>;
+export type DoyleOverlay = {
+  playerMeta?: { player_id: string; stage: string; owner: string; phone: string; instagram: string; source: string }[];
+  crmTasks?: { id: number; player_id: string; kind: string; title: string; assignee: string; due_at: number; completed_at: number | null; result: string; created_at: number }[];
+  crmMessages?: { id: number; player_id: string; direction: string; channel: string; author: string; body: string; created_at: number }[];
+  crmEvents?: { id: number; player_id: string; kind: string; actor: string; summary: string; created_at: number }[];
+  ratingPresets?: { name: string; scheme: unknown }[];
+};
+export type DoyleRows = Record<DoyleResource, unknown[]> & DoyleOverlay;
 export const optionalDoyleResources: ReadonlySet<DoyleResource> = new Set(['blueprints', 'notes', 'tags', 'debts', 'broadcasts']);

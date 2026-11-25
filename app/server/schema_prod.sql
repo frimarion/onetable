@@ -96,6 +96,57 @@ CREATE TABLE IF NOT EXISTS auth_audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_auth_audit_created ON auth_audit_log (created_at DESC);
 
+-- Надстройка OneTable для CRM/рейтинга клуба Doyle (поля, которых нет в старом Supabase Doyle)
+CREATE TABLE IF NOT EXISTS doyle_player_meta (
+  player_id   text PRIMARY KEY,
+  stage       text NOT NULL DEFAULT '',
+  owner       text NOT NULL DEFAULT '',
+  phone       text NOT NULL DEFAULT '',
+  instagram   text NOT NULL DEFAULT '',
+  source      text NOT NULL DEFAULT '',
+  updated_at  bigint NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS doyle_crm_tasks (
+  id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  player_id     text NOT NULL,
+  kind          text NOT NULL CHECK (kind IN ('call', 'follow_up', 'meeting')),
+  title         text NOT NULL,
+  assignee      text NOT NULL DEFAULT '',
+  due_at        bigint NOT NULL,
+  completed_at  bigint,
+  result        text NOT NULL DEFAULT '',
+  created_at    bigint NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_doyle_crm_tasks_player ON doyle_crm_tasks (player_id);
+
+CREATE TABLE IF NOT EXISTS doyle_crm_messages (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  player_id   text NOT NULL,
+  direction   text NOT NULL CHECK (direction IN ('in', 'out')),
+  channel     text NOT NULL CHECK (channel IN ('telegram', 'instagram', 'phone', 'club')),
+  author      text NOT NULL DEFAULT '',
+  body        text NOT NULL,
+  created_at  bigint NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_doyle_crm_messages_player ON doyle_crm_messages (player_id);
+
+CREATE TABLE IF NOT EXISTS doyle_crm_events (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  player_id   text NOT NULL,
+  kind        text NOT NULL,
+  actor       text NOT NULL DEFAULT '',
+  summary     text NOT NULL,
+  created_at  bigint NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_doyle_crm_events_player ON doyle_crm_events (player_id);
+
+CREATE TABLE IF NOT EXISTS doyle_rating_presets (
+  name        text PRIMARY KEY,
+  scheme      jsonb NOT NULL,
+  updated_at  bigint NOT NULL
+);
+
 -- =============================================================================
 -- 2. Изоляция клубов на уровне PostgreSQL (Row Level Security)
 -- Приложение подключается ролью onetable_app (БЕЗ BYPASSRLS и БЕЗ SUPERUSER)

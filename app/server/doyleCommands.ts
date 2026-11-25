@@ -20,7 +20,7 @@ export type DoyleGame = {
   registrations: { player_id: number; attendance: string; doyle_players: { name: string } | null }[];
 };
 
-function encodeLevels(levels: Level[], ante = true) {
+export function encodeLevels(levels: Level[], ante = true) {
   return levels.map(level => ({ min: level.duration / 60, sb: level.small, bb: level.big,
     anteMode: ante && level.kind === 'play' && level.ante > 0 ? 'BB' : 'NONE', ante: ante ? level.ante : 0, isBreak: level.kind === 'break' }));
 }

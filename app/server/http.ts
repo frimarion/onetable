@@ -329,11 +329,12 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   }
 
   if (method === 'GET' && url.pathname === '/api/doyle/snapshot') {
-    return sendJson(res, 200, await readDoyleRows(ctx));
+    return sendJson(res, 200, await readDoyleRows(ctx, pg));
   }
 
   const doyleCommand = /^\/api\/doyle\/tournaments\/([1-9][0-9]{0,14})\/commands$/.exec(url.pathname);
-  if (method === 'POST' && doyleCommand) {
+  const doyleClubCommand = url.pathname === '/api/doyle/commands';
+  if (method === 'POST' && (doyleCommand || doyleClubCommand)) {
     const origin = (SECURE_COOKIES ? 'https://' : 'http://') + req.headers.host;
     if (req.headers.origin !== origin || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin')) {
       throw new DomainError('Недопустимый источник запроса', 403);
@@ -342,7 +343,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     if (!body.action || typeof body.action !== 'object' || typeof body.id !== 'string' || !/^[a-zA-Z0-9_-]{8,80}$/.test(body.id)) {
       throw new DomainError('Укажите идентификатор и действие', 400);
     }
-    const result = await writeDoyleCommand(ctx, doyleCommand[1], body.id, body.action as Command);
+    const result = await writeDoyleCommand(pg, ctx, doyleCommand?.[1] ?? '', body.id, body.action as Command);
     notifyOfficeUpdate(ctx.club.id);
     return sendJson(res, 200, result);
   }

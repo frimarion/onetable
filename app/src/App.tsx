@@ -314,8 +314,8 @@ export function App() {
     <main className="sheet">
       {error && <p className="alert" role="status">Связь прервана. Показано последнее состояние.</p>}
       {screen === 'tournaments' && <>
-        <Heading title="Турниры" subtitle={session.club.name} actions={!isDoyleLive ? <>
-          <a className="button" href={scheduleHref(data.club.id)} target="_blank" rel="noreferrer">Расписание клуба <ExternalLink size={15} /></a>
+        <Heading title="Турниры" subtitle={session.club.name} actions={(!isDoyleLive || prodAuth?.doyleWrite) ? <>
+          {!isDoyleLive && <a className="button" href={scheduleHref(data.club.id)} target="_blank" rel="noreferrer">Расписание клуба <ExternalLink size={15} /></a>}
           <button className="button" disabled={busy} onClick={() => { setNotice(''); setView('week'); }}><CalendarPlus size={17} /> Создать неделю</button>
           <button className="button primary" disabled={busy} onClick={() => { setNotice(''); setView('create'); }}><Plus size={17} /> Создать турнир</button>
         </> : undefined} />
