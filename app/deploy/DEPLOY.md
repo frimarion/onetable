@@ -114,6 +114,18 @@ sudo certbot --nginx -d app.onetable.pro
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
+Для диагностики подключения `app` и `gw` можно включить отдельный журнал. Он записывает
+IP, этап, маршрут, HTTP-статус, время ответа приложения и объём передачи. Файл ротируется
+вместе с журналами Nginx. Доступ ограничен администратором и группой `adm`.
+
+```bash
+sudo touch /var/log/nginx/onetable-connection.log
+sudo chown www-data:adm /var/log/nginx/onetable-connection.log
+sudo chmod 0640 /var/log/nginx/onetable-connection.log
+sudo install -m 0644 /opt/onetable/app/deploy/onetable-connection-log.conf /etc/nginx/conf.d/onetable-connection-log.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
 ---
 
 ## 7. Ежедневный бэкап БД (cron)
