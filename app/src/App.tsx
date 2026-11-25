@@ -255,12 +255,12 @@ export function App() {
           </button>) : <p className="empty">Турниров пока нет</p>}
         </section>
         {totalPages > 1 && (
-          <nav className="pagination" aria-label="Страницы списка турниров">
+          <div className="pagination" role="navigation" aria-label="Страницы списка турниров">
             <span className="pagination-info">Показано {pageStart + 1}–{pageEnd} из {totalTournaments}</span>
             <div className="pagination-controls">
               <button
                 type="button"
-                className="button compact"
+                className="pagination-nav"
                 disabled={safePage <= 1}
                 aria-label="Предыдущая страница"
                 onClick={() => goToPage(safePage - 1)}
@@ -286,7 +286,7 @@ export function App() {
               </div>
               <button
                 type="button"
-                className="button compact"
+                className="pagination-nav"
                 disabled={safePage >= totalPages}
                 aria-label="Следующая страница"
                 onClick={() => goToPage(safePage + 1)}
@@ -294,7 +294,7 @@ export function App() {
                 Вперёд <ChevronRight size={15} />
               </button>
             </div>
-          </nav>
+          </div>
         )}
       </>}
       {screen === 'week' && <TournamentWeek key={data.club.id} data={data} busy={busy} run={run} back={() => setView('tournaments')} />}

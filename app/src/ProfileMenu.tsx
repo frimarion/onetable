@@ -322,17 +322,22 @@ export function ProfileSettingsDialog({
                 </div>
               </div>
 
-              <label className="pref-row pref-toggle-row">
+              <div className="pref-row pref-toggle-row">
                 <div>
                   <strong>Снизить анимации</strong>
                   <small>Отключает плавные переходы — полезно на планшетах в зале</small>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={prefs.reducedMotion}
-                  onChange={event => updatePrefs({ reducedMotion: event.target.checked })}
-                />
-              </label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={prefs.reducedMotion}
+                  aria-label="Снизить анимации"
+                  className={'ui-switch' + (prefs.reducedMotion ? ' checked' : '')}
+                  onClick={() => updatePrefs({ reducedMotion: !prefs.reducedMotion })}
+                >
+                  <span className="ui-switch-thumb" />
+                </button>
+              </div>
 
               <div className="pref-footer">
                 <button
