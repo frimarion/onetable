@@ -23,7 +23,8 @@
   .sheet { padding: 12px; }
   .topbar { grid-template-columns: auto 1fr; padding-right: 14px; }
   .brand { padding-left: 14px; font-size: 19px; }
-  .top-context, .profile > span:last-child { display: none; }
+  .top-context, .profile-name { display: none; }
+  .profile-trigger { padding: 3px 6px 3px 3px; gap: 4px; }
   .top-right { gap: 8px; }
   .dealer-shell .demo-label { display: none; }
   .theme-toggle { min-height: 44px; }
@@ -292,4 +293,9 @@
 @media (max-width: 510px) {
   .finance-kpis { grid-template-columns: minmax(0, 1fr); }
   .finance-kpi-cell + .finance-kpi-cell { border-left: 0; border-top: 1px solid var(--line); }
+  .pref-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .pref-toggle-row { flex-direction: row; align-items: center; }
+  .settings-dialog { padding: 14px; }
+  .pagination { flex-direction: column; align-items: stretch; gap: 8px; }
+  .pagination-controls { justify-content: space-between; }
 }

@@ -370,6 +370,15 @@ export function useOffice(doyleTvTournament?: string) {
       setBusy(false);
     }
   };
+  const updateProfileName = async (name: string) => {
+    const res = await request<{ user: ProdAuthState['user'] }>('/api/auth/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    setProdAuth(prev => prev ? { ...prev, user: res.user } : prev);
+    return res.user;
+  };
   return {
     session: activeSession,
     sessions: activeSessions,
@@ -390,6 +399,7 @@ export function useOffice(doyleTvTournament?: string) {
     prodLogin,
     prodAcceptInvite,
     prodLogout,
+    updateProfileName,
     waitingForTournament: prodMode && !isDoyleLive && !id,
     setId: (next: string) => { if (!inFlight.current) { setId(next); setError(''); } },
   };

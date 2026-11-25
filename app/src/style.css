@@ -956,3 +956,175 @@ button.result-person:not(:disabled):hover > svg { color: var(--accent); }
   .tv-info, .tv-stats { padding: 0; }
   .account-row { flex-wrap: wrap; }
 }
+
+/* ── Меню профиля и настройки ──────────────────────────────────────────────── */
+.profile-menu-wrap { position: relative; }
+.profile-trigger {
+  display: inline-flex; align-items: center; gap: 9px; min-height: 38px; padding: 3px 10px 3px 4px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--text);
+  transition: background-color .15s, border-color .15s;
+}
+.profile-trigger:hover, .profile-trigger.open { background: var(--raised); border-color: var(--button-border); }
+.profile-name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
+.profile-chevron { color: var(--muted); transition: transform .15s; }
+.profile-trigger.open .profile-chevron { transform: rotate(180deg); }
+
+.profile-popover {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 40;
+  width: 288px; max-width: calc(100vw - 24px);
+  background: var(--panel); border: 1px solid var(--dialog-border); border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .34); overflow: hidden;
+}
+:root[data-theme="light"] .profile-popover { box-shadow: 0 16px 38px rgba(15, 25, 20, .14); }
+.profile-popover-head {
+  display: flex; align-items: center; gap: 11px; padding: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.profile-popover-meta { min-width: 0; display: grid; gap: 2px; }
+.profile-popover-meta strong { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-popover-meta small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-role-badge {
+  justify-self: start; margin-top: 3px; padding: 2px 7px; border-radius: 5px;
+  font-size: 11px; font-weight: 550; color: var(--accent); background: var(--accent-soft);
+}
+.profile-popover-section { display: grid; gap: 7px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.profile-popover-label { font-size: 12px; color: var(--muted); }
+.profile-popover-actions { display: grid; padding: 6px; gap: 2px; }
+.profile-menu-item {
+  display: flex; align-items: center; gap: 9px; width: 100%; min-height: 36px; padding: 8px 10px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text); text-align: left; font-size: 13px; font-weight: 500;
+}
+.profile-menu-item:hover { background: var(--raised); }
+.profile-menu-item svg { color: var(--muted); }
+.profile-menu-item.danger { color: var(--danger); }
+.profile-menu-item.danger svg { color: var(--danger); }
+.profile-popover-divider { height: 1px; background: var(--line); margin: 4px 6px; }
+
+.segmented {
+  display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 3px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 9px;
+}
+.segmented button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 30px; padding: 4px 10px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--muted); font-size: 12px; font-weight: 550; white-space: nowrap;
+}
+.segmented button:hover { color: var(--text); }
+.segmented button.active { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .18); }
+:root[data-theme="light"] .segmented button.active { box-shadow: 0 1px 2px rgba(15, 25, 20, .09); }
+
+/* Цвета аватара */
+.avatar.avatar-lg { width: 46px; height: 46px; font-size: 17px; }
+.avatar.tone-emerald, .tone-swatch.tone-emerald { background: #173d2d; color: #7aeab0; }
+.avatar.tone-cobalt, .tone-swatch.tone-cobalt { background: #1a2d4a; color: #8ec0ff; }
+.avatar.tone-amber, .tone-swatch.tone-amber { background: #3e2e16; color: #f6cf86; }
+.avatar.tone-plum, .tone-swatch.tone-plum { background: #342142; color: #d8b2ff; }
+:root[data-theme="light"] .avatar.tone-emerald, :root[data-theme="light"] .tone-swatch.tone-emerald { background: #cfece0; color: #0b5d40; }
+:root[data-theme="light"] .avatar.tone-cobalt, :root[data-theme="light"] .tone-swatch.tone-cobalt { background: #d8e7fb; color: #194a91; }
+:root[data-theme="light"] .avatar.tone-amber, :root[data-theme="light"] .tone-swatch.tone-amber { background: #f5e5c4; color: #7a4c0e; }
+:root[data-theme="light"] .avatar.tone-plum, :root[data-theme="light"] .tone-swatch.tone-plum { background: #eadcf8; color: #5b2e8a; }
+.tone-swatch.tone-default { background: var(--avatar-bg); color: var(--avatar-text); }
+
+/* Модалка настроек профиля */
+.backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  display: grid; place-items: center; padding: 16px;
+  background: var(--backdrop);
+}
+.dialog {
+  width: min(480px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--dialog-border); border-radius: 14px; padding: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .42);
+}
+:root[data-theme="light"] .dialog { box-shadow: 0 20px 50px rgba(15, 25, 20, .18); }
+.settings-dialog {
+  width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 32px);
+  display: flex; flex-direction: column; overflow: hidden; padding: 20px;
+}
+.settings-dialog-title { display: grid; gap: 2px; }
+.settings-tabs { margin-bottom: 16px; flex: none; }
+.settings-dialog-body { overflow-y: auto; padding-right: 2px; }
+.settings-stack { display: grid; gap: 14px; }
+.pref-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 12px 0; border-bottom: 1px solid var(--line);
+}
+.pref-row > div { display: grid; gap: 3px; min-width: 0; }
+.pref-row strong { font-size: 14px; font-weight: 550; }
+.pref-toggle-row { cursor: pointer; }
+.pref-toggle-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+.pref-select {
+  min-height: 36px; padding: 6px 10px; border-radius: 8px;
+  background: var(--ground); border: 1px solid var(--input-border); color: var(--text); font-size: 13px;
+}
+.pref-footer { display: flex; justify-content: flex-start; padding-top: 4px; }
+
+.account-block { display: grid; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.account-block:last-child { border-bottom: 0; padding-bottom: 0; }
+.account-block h3 { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+.account-block h3 svg { color: var(--muted); }
+.account-block-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.profile-identity-edit { display: flex; align-items: center; gap: 12px; }
+.avatar-tone-picker { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.tone-swatches { display: flex; gap: 8px; }
+.tone-swatch {
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent;
+  display: inline-grid; place-items: center; padding: 0;
+}
+.tone-swatch.active { border-color: var(--accent); }
+.inline-ok { margin: 0; font-size: 13px; color: var(--accent); }
+
+.social-list, .session-list { display: grid; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--ground); }
+.social-row, .session-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px;
+}
+.social-row + .social-row, .session-row + .session-row { border-top: 1px solid var(--line); }
+.social-row > div, .session-info { display: grid; gap: 2px; min-width: 0; }
+.social-row strong, .session-info strong { font-size: 13px; font-weight: 550; }
+.session-row { justify-content: flex-start; }
+.session-row > svg { color: var(--muted); flex: none; }
+.session-row .state { margin-left: auto; }
+
+/* ── Пагинация списка турниров ─────────────────────────────────────────────── */
+.pagination {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-top: 14px; padding: 4px 2px;
+}
+.pagination-info { color: var(--muted); font-size: 12px; }
+.pagination-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pagination-pages { display: inline-flex; align-items: center; gap: 4px; }
+.pagination-page {
+  min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px;
+  border: 1px solid transparent; background: transparent; color: var(--muted); font-size: 13px; font-weight: 550;
+}
+.pagination-page:hover { background: var(--raised); color: var(--text); }
+.pagination-page.active { background: var(--accent-soft); border-color: var(--selected-border); color: var(--accent); }
+.pagination-ellipsis { padding: 0 4px; color: var(--muted); font-size: 13px; }
+
+/* ── Колокольчик сигналов таймера ──────────────────────────────────────────── */
+.timer-title { justify-content: space-between; }
+.timer-title-main { display: flex; align-items: center; gap: 9px; }
+.timer-sound-btn {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--ground); color: var(--muted);
+  transition: color .15s, background-color .15s, border-color .15s;
+}
+.timer-sound-btn:hover { background: var(--raised); color: var(--text); }
+.timer-sound-btn.active { color: var(--accent); background: var(--accent-soft); border-color: var(--selected-border); }
+.timer-sound-btn.active svg { color: var(--accent); }
+
+/* ── Персональные режимы: компактность и снижение анимаций ─────────────────── */
+:root[data-density="compact"] .sheet { padding: 16px 18px; }
+:root[data-density="compact"] .heading { margin: 4px 0 14px; }
+:root[data-density="compact"] .schedule-row { padding: 10px 14px; min-height: 46px; }
+:root[data-density="compact"] .person-row { min-height: 44px; padding: 6px 12px; }
+:root[data-density="compact"] .panel-head { padding: 10px 13px; }
+:root[data-density="compact"] .metrics div { padding: 11px 13px; }
+:root[data-density="compact"] .sidebar nav button { padding: 9px 11px; }
+
+:root[data-motion="reduced"] *, :root[data-motion="reduced"] *::before, :root[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

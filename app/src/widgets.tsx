@@ -1,8 +1,9 @@
-import { useEffect, useState, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { ArrowRight, ChevronRight, Search } from 'lucide-react';
 import logo from './logo.svg';
 import lightLogo from './logo-light.svg';
 import { remaining, type Entry, type Snapshot, type Tournament } from '../shared/model';
+import { playTimerChime, usePreferences } from './preferences';
 
 export const format = new Intl.NumberFormat('ru-RU');
 export const money = (value: number) => format.format(value) + ' ₽';
@@ -24,6 +25,7 @@ export function Heading({ title, subtitle, state, actions }: { title: string; su
 }
 
 export function Timer({ data }: { data: Snapshot }) {
+  const { prefs } = usePreferences();
   const clock = data.clock;
   const [offset, setOffset] = useState(() => data.serverTime - Date.now());
   const [now, setNow] = useState(Date.now);
@@ -34,6 +36,16 @@ export function Timer({ data }: { data: Snapshot }) {
     return () => window.clearInterval(timer);
   }, [clock.startedAt]);
   const left = remaining(clock, now + offset);
+  const prevRef = useRef({ left, level: clock.level });
+  useEffect(() => {
+    const prev = prevRef.current;
+    const ended = prev.left > 0 && left === 0;
+    const levelChanged = prev.level !== clock.level && clock.startedAt !== null;
+    prevRef.current = { left, level: clock.level };
+    if ((ended || levelChanged) && prefs.timerSound) {
+      playTimerChime();
+    }
+  }, [left, clock.level, clock.startedAt, prefs.timerSound]);
   const level = data.structure[clock.level];
   const next = data.structure[clock.level + (clock.manualBreak ? 0 : 1)];
   const isBreak = clock.manualBreak || level.kind === 'break';

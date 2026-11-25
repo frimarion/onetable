@@ -6,9 +6,17 @@
     <meta name="theme-color" content="#0b0f0d">
     <script>
       try {
-        if (localStorage.getItem('onetable-theme') === 'light') {
+        var t = localStorage.getItem('onetable-theme');
+        var isLight = t === 'light' || (t === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+        if (isLight) {
           document.documentElement.dataset.theme = 'light';
           document.querySelector('meta[name="theme-color"]').content = '#f2f3f5';
+        }
+        var raw = localStorage.getItem('onetable-prefs');
+        if (raw) {
+          var p = JSON.parse(raw);
+          if (p && p.density === 'compact') document.documentElement.dataset.density = 'compact';
+          if (p && p.reducedMotion) document.documentElement.dataset.motion = 'reduced';
         }
       } catch {}
     </script>

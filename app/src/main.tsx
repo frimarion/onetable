@@ -7,6 +7,7 @@ import { DoyleTvScreen, TvScreen } from './Display';
 import { App } from './App';
 import { PublicSchedule } from './PublicSchedule';
 import { ThemeProvider } from './Theme';
+import { PreferencesProvider } from './preferences';
 
 function Root() {
   const [hash, setHash] = useState(location.hash);
@@ -24,5 +25,5 @@ function Root() {
   return club ? <PublicSchedule key={club} club={club} tournament={params.get('tournament')} /> : <App />;
 }
 
-createRoot(document.getElementById('root')!).render(<ThemeProvider><Root /></ThemeProvider>);
+createRoot(document.getElementById('root')!).render(<ThemeProvider><PreferencesProvider><Root /></PreferencesProvider></ThemeProvider>);
 

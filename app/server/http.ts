@@ -4,9 +4,9 @@ import { extname, join, normalize, resolve } from 'node:path';
 import type { Command } from '../shared/model.ts';
 import { PgAdapter } from './pgAdapter.ts';
 import {
-  acceptInvite, clubAccounts, createInvite, issueTvToken, loginWithPassword, logoutSession, removeClubAccess,
-  parseCookies, resolveSession, resolveTvToken, SESSION_COOKIE, sessionCookieHeader,
-  switchSessionClub,
+  acceptInvite, changeUserPassword, clubAccounts, createInvite, issueTvToken, listUserSessions, loginWithPassword,
+  logoutSession, removeClubAccess, parseCookies, resolveSession, resolveTvToken, revokeOtherSessions,
+  SESSION_COOKIE, sessionCookieHeader, switchSessionClub, updateUserProfile,
 } from './auth.ts';
 import { command, DomainError, snapshot } from './tournament.ts';
 import { publicSchedule } from './definitions.ts';
@@ -251,6 +251,25 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     const body = await readJson(req);
     await switchSessionClub(pg, rawSessionToken!, String(body.clubId || ''));
     return sendJson(res, 200, { ok: true });
+  }
+
+  if (method === 'PATCH' && url.pathname === '/api/auth/profile') {
+    const body = await readJson(req);
+    const user = await updateUserProfile(pg, ctx, String(body.name || ''), ip);
+    return sendJson(res, 200, { user });
+  }
+  if (method === 'POST' && url.pathname === '/api/auth/password') {
+    checkRateLimit('password:' + ctx.user.id, 5, 60_000);
+    const body = await readJson(req);
+    await changeUserPassword(pg, ctx, String(body.currentPassword || ''), String(body.newPassword || ''), rawSessionToken, ip);
+    return sendJson(res, 200, { ok: true });
+  }
+  if (method === 'GET' && url.pathname === '/api/auth/sessions') {
+    return sendJson(res, 200, { sessions: await listUserSessions(pg, ctx, rawSessionToken) });
+  }
+  if (method === 'DELETE' && url.pathname === '/api/auth/sessions') {
+    const revoked = await revokeOtherSessions(pg, ctx, rawSessionToken, ip);
+    return sendJson(res, 200, { ok: true, revoked });
   }
 
   if (method === 'GET' && url.pathname === '/api/auth/accounts') {

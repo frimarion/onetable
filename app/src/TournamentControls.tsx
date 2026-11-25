@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Award, Check, ChevronRight, Clock3, Coffee, Copy, Crosshair, Monitor, Pause, Play, RotateCcw, SkipBack, SkipForward, Sparkles, Trophy, UsersRound } from 'lucide-react';
+import { Award, Bell, BellOff, Check, ChevronRight, Clock3, Coffee, Copy, Crosshair, Monitor, Pause, Play, RotateCcw, SkipBack, SkipForward, Sparkles, Trophy, UsersRound } from 'lucide-react';
 import type { Command, Entry, Snapshot } from '../shared/model';
 import type { Result } from '../shared/operations';
 import { calculateRating, ratingSchemeOf, type RatingCalculation } from '../shared/rating';
@@ -8,15 +8,34 @@ import type { Modal } from './crm';
 import { RatingSummary } from './RatingBuilder';
 import { Person, SearchBox, Timer, format } from './widgets';
 import { matchesQuery } from '../shared/search';
+import { playTimerChime, usePreferences } from './preferences';
 
 export function TimerControls({ data, busy, run, open, floor = false }: { data: Snapshot; busy: boolean; run: Run; open: (modal: Modal) => void; floor?: boolean }) {
+  const { prefs, updatePrefs } = usePreferences();
   const tournament = data.tournament;
   const live = tournament.state === 'live';
   const { clock, revision } = data;
   const send = (operation: 'previous' | 'restart' | 'break' | 'minus' | 'plus') => run({ type: 'clockControl', operation, revision });
   const finish: Command = { type: 'finish' };
+  function toggleSound() {
+    const next = !prefs.timerSound;
+    updatePrefs({ timerSound: next });
+    if (next) playTimerChime();
+  }
   return <div className="panel timer-panel" id="tournament-controls" tabIndex={-1}>
-    <div className="timer-title"><Clock3 size={17} /><h2>Таймер турнира</h2></div>
+    <div className="timer-title">
+      <div className="timer-title-main"><Clock3 size={17} /><h2>Таймер турнира</h2></div>
+      <button
+        type="button"
+        className={'timer-sound-btn' + (prefs.timerSound ? ' active' : '')}
+        aria-pressed={prefs.timerSound}
+        aria-label={prefs.timerSound ? 'Выключить звуковой сигнал таймера' : 'Включить звуковой сигнал таймера'}
+        title={prefs.timerSound ? 'Сигналы таймера включены' : 'Сигналы таймера выключены'}
+        onClick={toggleSound}
+      >
+        {prefs.timerSound ? <Bell size={15} /> : <BellOff size={15} />}
+      </button>
+    </div>
     <Timer data={data} />
     {live && <>
       <div className="timer-buttons extended">

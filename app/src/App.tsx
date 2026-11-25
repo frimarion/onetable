@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { ArrowLeft, CalendarPlus, ChevronRight, Clock3, ExternalLink, Eye, EyeOff, LayoutGrid, LogOut, Plus, Trophy, UserRoundCog, UsersRound, Wallet, X } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { ArrowLeft, CalendarPlus, ChevronLeft, ChevronRight, Clock3, ExternalLink, Eye, EyeOff, LayoutGrid, Plus, Trophy, UserRoundCog, UsersRound, Wallet, X } from 'lucide-react';
 import { useOffice } from './api';
 import { Brand, Heading, pad, Person, State, Timer, money, startLabel } from './widgets';
 import { Crm, Dialog, bustModal, type Modal } from './crm';
@@ -10,12 +10,25 @@ import { TournamentWeek } from './TournamentWeek';
 import { RatingStudio } from './RatingBuilder';
 import { ClubFinance } from './ClubFinance';
 import { MobileNav } from './MobileNav';
-import { ThemeSwitch } from './Theme';
+import { ProfileMenu } from './ProfileMenu';
+import { usePreferences } from './preferences';
 import { ClubAccounts } from './ClubAccounts';
 import { StaffTournament } from './StaffTournament';
 import { scheduleHref } from './PublicSchedule';
 
 type View = 'live' | 'crm' | 'rating' | 'finance' | 'tournaments' | 'create' | 'edit' | 'week' | 'accounts';
+
+function buildPageNumbers(current: number, total: number): (number | 'ellipsis')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | 'ellipsis')[] = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  if (start > 2) pages.push('ellipsis');
+  for (let p = start; p <= end; p++) pages.push(p);
+  if (end < total - 1) pages.push('ellipsis');
+  pages.push(total);
+  return pages;
+}
 
 function ProdAuthScreen({ busy, onLogin, onAcceptInvite }: {
   busy: boolean;
@@ -94,10 +107,25 @@ export function App() {
   const {
     session, data, busy, error, notice, setNotice, sessions, run, select, external,
     isDoyleLive,
-    prodMode, prodAuth, authChecked, prodLogin, prodAcceptInvite, prodLogout, waitingForTournament,
+    prodMode, prodAuth, authChecked, prodLogin, prodAcceptInvite, prodLogout, updateProfileName, waitingForTournament,
   } = office;
+  const { prefs } = usePreferences();
   const [view, setView] = useState<View>();
   const [modal, setModal] = useState<Modal>();
+  const [tournamentsPage, setTournamentsPage] = useState(1);
+
+  useEffect(() => {
+    setTournamentsPage(1);
+  }, [session?.club.id, isDoyleLive, prefs.tournamentsPerPage]);
+
+  const profileControl = (
+    <ProfileMenu
+      prodMode={prodMode}
+      prodAuth={prodAuth}
+      onLogout={prodMode && prodAuth ? () => { void prodLogout(); } : undefined}
+      onSaveName={async nextName => { await updateProfileName(nextName); }}
+    />
+  );
   const open = (next: Modal) => { setNotice(''); setModal(next); };
   const admin = sessions.find(item => item.role === 'admin' && item.club.id === session?.club.id);
   if (prodMode && authChecked && ((!prodAuth && !error) || new URLSearchParams(location.search).has('invite'))) {
@@ -119,8 +147,8 @@ export function App() {
   </div>;
   if (session && (staffDesk || waitingForTournament || prodAuth?.doyleUnavailable)) {
     return <div className={staffDesk ? 'shell dealer-shell' : 'shell admin-shell'}>
-      <header className="topbar"><Brand /><div className="top-right"><ThemeSwitch />
-        <button className="button compact" onClick={() => void prodLogout()}><LogOut size={16} /> Выйти</button>
+      <header className="topbar"><Brand /><div className="top-right">
+        {profileControl}
       </div></header>
       {!staffDesk && <aside className="sidebar">
         {clubSelector}
@@ -165,7 +193,7 @@ export function App() {
   if (session.role === 'display') return <Display key={data.tournament.id} data={data} error={error} />;
 
   const dealer = session.role === 'dealer';
-  const currentView = view ?? (prodMode ? 'tournaments' : 'live');
+  const currentView = view ?? prefs.startView;
   const allowedView = (currentView === 'accounts' && !accounts) || (currentView === 'finance' && !finances) ? 'tournaments' : currentView;
   const screen = dealer ? 'dealer' : allowedView === 'live' && data.tournament.state === 'draft' ? 'edit' : allowedView;
   const breadcrumb = screen === 'accounts' ? 'Учётные записи' : screen === 'crm' ? 'CRM' : screen === 'rating' ? 'Рейтинг' : screen === 'finance' ? 'Финансы' : dealer ? 'Планшет дилера' : 'Турниры';
@@ -173,14 +201,23 @@ export function App() {
     setView(next);
     window.scrollTo(0, 0);
   }
+  const perPage = prefs.tournamentsPerPage;
+  const totalTournaments = data.schedule.length;
+  const totalPages = Math.max(1, Math.ceil(totalTournaments / perPage));
+  const safePage = Math.min(tournamentsPage, totalPages);
+  const pageStart = (safePage - 1) * perPage;
+  const visibleTournaments = data.schedule.slice(pageStart, pageStart + perPage);
+  const pageEnd = Math.min(totalTournaments, pageStart + visibleTournaments.length);
+  function goToPage(nextPage: number) {
+    setTournamentsPage(Math.min(Math.max(1, nextPage), totalPages));
+    window.scrollTo({ top: 0, behavior: prefs.reducedMotion ? 'auto' : 'smooth' });
+  }
   return <div className={dealer ? 'shell dealer-shell' : 'shell admin-shell'}>
     <header className="topbar">
       <Brand />
       <div className="top-context"><span>{session.club.name}</span><ChevronRight size={14} /><span>{breadcrumb}</span></div>
       <div className="top-right">
-        <ThemeSwitch />
-        {dealer ? <button className="button" onClick={() => admin && select(admin)}><ArrowLeft size={16} /> Кабинет</button> :
-          <span className="profile"><span className="avatar">{(prodAuth?.user.name?.[0] || prodAuth?.user.email?.[0] || 'А').toUpperCase()}</span><span>{prodAuth ? (prodAuth.user.name || prodAuth.user.email) : 'Администратор'}</span></span>}
+        {dealer ? <button className="button" onClick={() => admin && select(admin)}><ArrowLeft size={16} /> Кабинет</button> : profileControl}
       </div>
     </header>
     {!dealer && <aside className="sidebar">
@@ -195,8 +232,7 @@ export function App() {
       <div className="sidebar-bottom">
         {prodMode && prodAuth ? (
           <div className="sidebar-conn">
-            <div><strong>{session.club.name}</strong><small>{prodAuth.user.email}</small></div>
-            <button className="button compact wide" type="button" onClick={() => void prodLogout()}><LogOut size={14} /> Выйти</button>
+            <div><strong>{session.club.name}</strong><small>{session.club.venue}</small></div>
           </div>
         ) : (
           <div className="sidebar-conn">
@@ -214,11 +250,52 @@ export function App() {
           <button className="button primary" disabled={busy} onClick={() => { setNotice(''); setView('create'); }}><Plus size={17} /> Создать турнир</button>
         </> : undefined} />
         <section className="panel schedule" aria-label="Список турниров">
-          {!data.schedule.length && <p className="empty">Турниров пока нет</p>}
-          {data.schedule.map(item => <button className="schedule-row" key={item.id} disabled={busy} onClick={() => { office.setId(item.id); setView('live'); }}>
+          {visibleTournaments.length ? visibleTournaments.map(item => <button className="schedule-row" key={item.id} disabled={busy} onClick={() => { office.setId(item.id); setView('live'); }}>
             <span><strong>{item.name}</strong><small>{startLabel(item.startsAt)}</small></span><State tournament={item} /><ChevronRight size={17} />
-          </button>)}
+          </button>) : <p className="empty">Турниров пока нет</p>}
         </section>
+        {totalPages > 1 && (
+          <nav className="pagination" aria-label="Страницы списка турниров">
+            <span className="pagination-info">Показано {pageStart + 1}–{pageEnd} из {totalTournaments}</span>
+            <div className="pagination-controls">
+              <button
+                type="button"
+                className="button compact"
+                disabled={safePage <= 1}
+                aria-label="Предыдущая страница"
+                onClick={() => goToPage(safePage - 1)}
+              >
+                <ChevronLeft size={15} /> Назад
+              </button>
+              <div className="pagination-pages">
+                {buildPageNumbers(safePage, totalPages).map((entry, idx) =>
+                  entry === 'ellipsis' ? (
+                    <span key={'e' + idx} className="pagination-ellipsis" aria-hidden="true">…</span>
+                  ) : (
+                    <button
+                      key={entry}
+                      type="button"
+                      className={'pagination-page' + (entry === safePage ? ' active' : '')}
+                      aria-current={entry === safePage ? 'page' : undefined}
+                      onClick={() => goToPage(entry)}
+                    >
+                      {entry}
+                    </button>
+                  ),
+                )}
+              </div>
+              <button
+                type="button"
+                className="button compact"
+                disabled={safePage >= totalPages}
+                aria-label="Следующая страница"
+                onClick={() => goToPage(safePage + 1)}
+              >
+                Вперёд <ChevronRight size={15} />
+              </button>
+            </div>
+          </nav>
+        )}
       </>}
       {screen === 'week' && <TournamentWeek key={data.club.id} data={data} busy={busy} run={run} back={() => setView('tournaments')} />}
       {(screen === 'create' || screen === 'edit') && <TournamentEditor key={screen + data.tournament.id} data={data}

@@ -438,3 +438,99 @@ export async function resolveTvToken(pg: PgAdapter, rawToken: string): Promise<{
     };
   });
 }
+
+export type ActiveSessionInfo = {
+  id: string;
+  current: boolean;
+  createdAt: number;
+  expiresAt: number;
+  ip: string;
+  userAgent: string;
+};
+
+export async function updateUserProfile(pg: PgAdapter, actor: AuthContext, name: string, ip: string): Promise<AuthUser> {
+  const cleanName = String(name || '').trim().slice(0, 80);
+  if (cleanName.length < 2) throw new DomainError('Имя должно содержать минимум 2 символа', 400);
+  const now = Date.now();
+  await pg.systemTransaction(async tx => {
+    await tx.query('UPDATE users SET name=$2 WHERE id=$1', [actor.user.id, cleanName]);
+    await tx.query(
+      'INSERT INTO auth_audit_log (event,user_id,club_id,email,ip,detail,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      ['profile_updated', actor.user.id, actor.club.id, actor.user.email, ip, cleanName, now],
+    );
+  });
+  return { ...actor.user, name: cleanName };
+}
+
+export async function changeUserPassword(
+  pg: PgAdapter,
+  actor: AuthContext,
+  currentPassword: string,
+  newPassword: string,
+  rawSessionToken: string | undefined,
+  ip: string,
+): Promise<void> {
+  if (!currentPassword || !newPassword) throw new DomainError('Укажите текущий и новый пароль', 400);
+  if (currentPassword === newPassword) throw new DomainError('Новый пароль должен отличаться от текущего', 400);
+  const nextHash = hashPassword(newPassword);
+  const now = Date.now();
+  const currentHash = rawSessionToken ? sha256(rawSessionToken) : '';
+  await pg.systemTransaction(async tx => {
+    const row = (await tx.query<{ password_hash: string }>(
+      'SELECT password_hash FROM users WHERE id=$1 FOR UPDATE',
+      [actor.user.id],
+    )).rows[0];
+    if (!row || !verifyPassword(currentPassword, row.password_hash)) {
+      throw new DomainError('Текущий пароль указан неверно', 401);
+    }
+    await tx.query('UPDATE users SET password_hash=$2 WHERE id=$1', [actor.user.id, nextHash]);
+    if (currentHash) {
+      await tx.query('DELETE FROM auth_sessions WHERE user_id=$1 AND token_hash<>$2', [actor.user.id, currentHash]);
+    }
+    await tx.query(
+      'INSERT INTO auth_audit_log (event,user_id,club_id,email,ip,created_at) VALUES ($1,$2,$3,$4,$5,$6)',
+      ['password_changed', actor.user.id, actor.club.id, actor.user.email, ip, now],
+    );
+  });
+}
+
+export async function listUserSessions(pg: PgAdapter, actor: AuthContext, rawSessionToken: string | undefined): Promise<ActiveSessionInfo[]> {
+  const currentHash = rawSessionToken ? sha256(rawSessionToken) : '';
+  const now = Date.now();
+  return pg.systemTransaction(async tx => {
+    const rows = (await tx.query<{
+      token_hash: string; created_at: string; expires_at: string; ip: string | null; user_agent: string | null;
+    }>(
+      `SELECT token_hash, created_at, expires_at, ip, user_agent
+         FROM auth_sessions
+        WHERE user_id=$1 AND expires_at > $2
+        ORDER BY created_at DESC`,
+      [actor.user.id, now],
+    )).rows;
+    return rows.map(row => ({
+      id: row.token_hash.slice(0, 12),
+      current: row.token_hash === currentHash,
+      createdAt: Number(row.created_at),
+      expiresAt: Number(row.expires_at),
+      ip: row.ip || '',
+      userAgent: row.user_agent || '',
+    }));
+  });
+}
+
+export async function revokeOtherSessions(pg: PgAdapter, actor: AuthContext, rawSessionToken: string | undefined, ip: string): Promise<number> {
+  const currentHash = rawSessionToken ? sha256(rawSessionToken) : '';
+  if (!currentHash) return 0;
+  const now = Date.now();
+  return pg.systemTransaction(async tx => {
+    const res = await tx.query<{ token_hash: string }>(
+      'DELETE FROM auth_sessions WHERE user_id=$1 AND token_hash<>$2 RETURNING token_hash',
+      [actor.user.id, currentHash],
+    );
+    await tx.query(
+      'INSERT INTO auth_audit_log (event,user_id,club_id,email,ip,detail,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      ['sessions_revoked', actor.user.id, actor.club.id, actor.user.email, ip, String(res.rows.length), now],
+    );
+    return res.rows.length;
+  });
+}
