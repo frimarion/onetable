@@ -196,6 +196,7 @@ export function Live({ data, busy, run, external, open, back, edit, crm, exportP
 
   const startSeatDrag = useCallback((event: ReactPointerEvent<HTMLButtonElement>, tableNo: number, seatNo: number, occupant: Entry) => {
     if (!live || busy || event.button !== 0 || !event.isPrimary || dragRef.current) return;
+    if (event.pointerType === 'mouse') event.preventDefault();
     dragRef.current = {
       pointerId: event.pointerId, player: occupant, fromTable: tableNo, fromSeat: seatNo,
       startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY,
@@ -276,7 +277,11 @@ export function Live({ data, busy, run, external, open, back, edit, crm, exportP
           </div>
           {seatDrag?.active && <div className={'seat-drag-ghost' + (seatDrag.target?.occupant ? ' swap' : seatDrag.target ? ' move' : '')}
             style={{ transform: `translate3d(${seatDrag.x}px, ${seatDrag.y}px, 0)` }} aria-hidden="true">
-            <span className="seat-avatar">{initialsOf(seatDrag.player.name, seatDrag.player.nickname)}</span>
+            <span className={'seat-avatar' + (seatDrag.player.photoUrl ? ' has-photo' : '')}>
+              {seatDrag.player.photoUrl
+                ? <img src={seatDrag.player.photoUrl} alt="" draggable={false} />
+                : initialsOf(seatDrag.player.name, seatDrag.player.nickname)}
+            </span>
             <span className="seat-drag-meta">
               <strong>{seatDrag.player.nickname || seatDrag.player.name}</strong>
               {seatDrag.target && <small>

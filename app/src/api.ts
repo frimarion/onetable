@@ -347,6 +347,45 @@ export function useOffice(doyleTvTournament?: string) {
     setNotice('');
     setError('');
   }
+function applyOptimistic(data: Snapshot, action: Command): Snapshot | null {
+  if (action.type === 'assign') {
+    const entries = data.entries.map(e =>
+      e.playerId === action.playerId ? { ...e, tableNo: action.tableNo, seatNo: action.seatNo } : e,
+    );
+    const seated = entries.filter(e => e.status === 'active' && e.tableNo !== null).length;
+    return { ...data, entries, stats: { ...data.stats, seated } };
+  }
+  if (action.type === 'vacate') {
+    const entries = data.entries.map(e =>
+      e.playerId === action.playerId ? { ...e, tableNo: null, seatNo: null, confirmed: false } : e,
+    );
+    const seated = entries.filter(e => e.status === 'active' && e.tableNo !== null).length;
+    return { ...data, entries, stats: { ...data.stats, seated } };
+  }
+  if (action.type === 'swapSeats') {
+    const first = data.entries.find(e => e.playerId === action.playerId);
+    const second = data.entries.find(e => e.playerId === action.withPlayerId);
+    if (!first || !second) return null;
+    const entries = data.entries.map(e => {
+      if (e.playerId === action.playerId) return { ...e, tableNo: second.tableNo, seatNo: second.seatNo };
+      if (e.playerId === action.withPlayerId) return { ...e, tableNo: first.tableNo, seatNo: first.seatNo };
+      return e;
+    });
+    return { ...data, entries };
+  }
+  if (action.type === 'confirmSeat') {
+    const entries = data.entries.map(e =>
+      e.playerId === action.playerId ? { ...e, confirmed: true } : e,
+    );
+    return { ...data, entries };
+  }
+  if (action.type === 'clearSeating') {
+    const entries = data.entries.map(e => ({ ...e, tableNo: null, seatNo: null, confirmed: false }));
+    return { ...data, entries, stats: { ...data.stats, seated: 0 } };
+  }
+  return null;
+}
+
   const run: Run = async (action, after) => {
     if (isDoyleLive && !prodAuth?.doyleWrite) {
       setNotice('Данные Doyle открыты в режиме просмотра');
@@ -356,6 +395,13 @@ export function useOffice(doyleTvTournament?: string) {
     inFlight.current = true;
     setBusy(true);
     setNotice('');
+    const previousSnapshot = snapshot;
+    const optimistic = previousSnapshot && previousSnapshot.token === activeToken
+      ? applyOptimistic(previousSnapshot.data, action)
+      : null;
+    if (optimistic && previousSnapshot) {
+      setSnapshot({ data: optimistic, token: previousSnapshot.token });
+    }
     const endpoint = isDoyleLive
       ? '/api/doyle/tournaments/' + id + '/commands'
       : action.type === 'createTournament' || action.type === 'copyTournamentWeek'
@@ -378,8 +424,16 @@ export function useOffice(doyleTvTournament?: string) {
         setError('');
       }
       after?.(response);
-      if (!response.tournamentId) await refresh().catch((reason: Error) => setError(reason.message));
+      if (!response.tournamentId) {
+        if (optimistic) {
+          // Для оптимистичных операций рассадки обновляем снимок в фоне, не блокируя следующий перенос
+          void refresh().catch((reason: Error) => setError(reason.message));
+        } else {
+          await refresh().catch((reason: Error) => setError(reason.message));
+        }
+      }
     } catch (reason) {
+      if (optimistic && previousSnapshot) setSnapshot(previousSnapshot);
       setNotice(reason instanceof Error ? reason.message : 'Операция не выполнена');
     } finally {
       inFlight.current = false;

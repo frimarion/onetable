@@ -96,12 +96,19 @@ async function main() {
       await page.goto(URL, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.profile-trigger', { timeout: 15_000 });
 
-      // 1. Проверка основного экрана + скриншот столов рассадки
+      // 1. Проверка основного экрана + скриншот столов рассадки (обычный и детальный)
       await assertNoOverflow(page, 'html', `${vp.name} · страница`);
       if (vp.name === 'desktop') {
         const tablesGrid = page.locator('.tables-grid').first();
         if (await tablesGrid.count()) {
           await tablesGrid.screenshot({ path: resolve(OUT_DIR, 'tables-grid.png') });
+          const toggleBtn = page.locator('button:has-text("Имена и аватарки")');
+          if (await toggleBtn.count()) {
+            await toggleBtn.click();
+            await page.waitForSelector('.tables-grid.detailed');
+            await assertNoOverflow(page, 'html', `${vp.name} · столы (детальный)`);
+            await page.locator('.tables-grid.detailed').first().screenshot({ path: resolve(OUT_DIR, 'tables-detailed.png') });
+          }
         }
       }
 

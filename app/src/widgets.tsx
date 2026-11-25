@@ -141,7 +141,7 @@ export function PokerTable({ number, capacity, entries, selected, detailed = fal
                 aria-label={`Стол ${number}, бокс ${seatNo}: ${occupant.nickname || occupant.name}`}
                 onPointerDown={canDrag && occupant ? event => onSeatPointerDown?.(event, seatNo, occupant) : undefined}
                 onClick={() => onSelectSeat?.(seatNo, occupant)}>
-                <span className="seat-avatar">{occupant.photoUrl ? <img src={occupant.photoUrl} alt="" loading="lazy" /> : initialsOf(occupant.name, occupant.nickname)}<i className="seat-num">{seatNo}</i></span>
+                <span className="seat-avatar">{occupant.photoUrl ? <img src={occupant.photoUrl} alt="" loading="lazy" draggable={false} /> : initialsOf(occupant.name, occupant.nickname)}<i className="seat-num">{seatNo}</i></span>
                 <span className="seat-name">{label}</span>
               </button>
             : <button type="button" key={seatNo} className="seat seat-free" style={pos}
