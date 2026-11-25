@@ -62,22 +62,27 @@ export function Timer({ data }: { data: Snapshot }) {
   </>;
 }
 
+// Раскладка боксов по часовой стрелке: 1 — по левую руку дилера (снизу слева),
+// дилер — в выемке снизу по центру (50, 84), последний бокс — по правую руку дилера (снизу справа).
 const seatLayouts: Record<number, [x: number, y: number, labelAbove?: boolean][]> = {
-  2: [[50, 17, true], [50, 83]],
-  3: [[50, 17, true], [84, 72], [16, 72]],
-  4: [[33, 17, true], [67, 17, true], [67, 83], [33, 83]],
-  5: [[33, 17, true], [67, 17, true], [89, 54], [50, 83], [11, 54]],
-  6: [[33, 17, true], [67, 17, true], [89, 50], [67, 83], [33, 83], [11, 50]],
-  7: [[28, 17, true], [50, 17, true], [72, 17, true], [89, 52], [65, 83], [35, 83], [11, 52]],
-  8: [[28, 17, true], [50, 17, true], [72, 17, true], [89, 50], [72, 83], [50, 83], [28, 83], [11, 50]],
-  9: [[29, 17, true], [50, 17, true], [71, 17, true], [88, 37], [86, 67], [63, 83], [37, 83], [14, 67], [12, 37]],
-  10: [[28, 17, true], [50, 17, true], [72, 17, true], [89, 36], [89, 64], [72, 83], [50, 83], [28, 83], [11, 64], [11, 36]],
+  2: [[24, 83], [76, 83]],
+  3: [[24, 83], [50, 15, true], [76, 83]],
+  4: [[24, 83], [26, 17, true], [74, 17, true], [76, 83]],
+  5: [[24, 83], [12, 42], [50, 15, true], [88, 42], [76, 83]],
+  6: [[24, 83], [10, 48], [31, 16, true], [69, 16, true], [90, 48], [76, 83]],
+  7: [[23, 83], [10, 50], [28, 16, true], [50, 15, true], [72, 16, true], [90, 50], [77, 83]],
+  8: [[23, 83], [10, 52], [24, 18, true], [41, 15, true], [59, 15, true], [76, 18, true], [90, 52], [77, 83]],
+  9: [[23, 83], [10, 62], [12, 32], [31, 16, true], [50, 15, true], [69, 16, true], [88, 32], [90, 62], [77, 83]],
+  10: [[23, 83], [10, 63], [10, 35], [25, 17, true], [42, 15, true], [58, 15, true], [75, 17, true], [90, 35], [90, 63], [77, 83]],
 };
 
 function seatCoords(capacity: number, index: number): [number, number, boolean] {
   const preset = seatLayouts[capacity]?.[index];
   if (preset) return [preset[0], preset[1], Boolean(preset[2])];
-  const angle = Math.PI * (2 * index / capacity - 0.5);
+  // Дуга 300° по часовой стрелке от 120° (левая рука дилера) до 420° (правая рука дилера)
+  const start = (2 * Math.PI) / 3;
+  const sweep = (5 * Math.PI) / 3;
+  const angle = start + (capacity > 1 ? (index / (capacity - 1)) * sweep : sweep / 2);
   const y = 50 + 34 * Math.sin(angle);
   return [50 + 40 * Math.cos(angle), y, y < 28];
 }
@@ -98,7 +103,19 @@ export function PokerTable({ number, capacity, entries, selected, detailed = fal
       <strong>Стол {pad(number)}</strong><ChevronRight size={16} />
     </button>
     <div className={'table-diagram' + (detailed ? ' detailed' : '')}>
-      <span className="felt" aria-hidden="true"><span className="felt-ring" /></span>
+      <svg className="felt-svg" viewBox="0 0 220 116" preserveAspectRatio="none" aria-hidden="true">
+        <path
+          className="felt-shape"
+          d="M 64 24 L 156 24 A 34 34 0 0 1 156 92 L 138 92 C 130 92 126 78 110 78 C 94 78 90 92 82 92 L 64 92 A 34 34 0 0 1 64 24 Z"
+        />
+        <path
+          className="felt-ring-path"
+          d="M 64 30 L 156 30 A 28 28 0 0 1 156 86 L 139 86 C 132 86 128 72 110 72 C 92 72 88 86 81 86 L 64 86 A 28 28 0 0 1 64 30 Z"
+        />
+      </svg>
+      <span className="dealer-slot" title="Дилер (неиграющее место)" aria-label="Место дилера">
+        {detailed ? 'Дилер' : 'D'}
+      </span>
       {Array.from({ length: capacity }, (_, index) => {
         const seatNo = index + 1;
         const occupant = entries.find(item => item.seatNo === seatNo);
