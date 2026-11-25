@@ -6,13 +6,13 @@ import { PgAdapter } from './pgAdapter.ts';
 import {
   acceptInvite, clubAccounts, createInvite, issueTvToken, loginWithPassword, logoutSession, removeClubAccess,
   parseCookies, resolveSession, resolveTvToken, SESSION_COOKIE, sessionCookieHeader,
-  sha256, switchSessionClub,
+  switchSessionClub,
 } from './auth.ts';
 import { command, DomainError, snapshot } from './tournament.ts';
 import { publicSchedule } from './definitions.ts';
 import { onlineRegistration } from './registration.ts';
 import { paymentWorkbook } from './paymentWorkbook.ts';
-import { doyleWorkspaceFile, hasDoyleAccess, hasDoyleWorkspace, issueDoyleSession, readDoyleRows } from './doyle.ts';
+import { hasDoyleAccess, readDoyleRows } from './doyle.ts';
 import { notifyOfficeUpdate, subscribeToOfficeUpdates } from './officeUpdates.ts';
 
 const PORT = Number(process.env.PORT || 4181);
@@ -84,38 +84,9 @@ const MIME: Record<string, string> = {
   '.jpg': 'image/jpeg',
   '.webp': 'image/webp',
   '.woff2': 'font/woff2',
-  '.woff': 'font/woff',
-  '.ico': 'image/x-icon',
-  '.ogg': 'audio/ogg',
-  '.mp3': 'audio/mpeg',
-  '.wav': 'audio/wav',
-  '.m4a': 'audio/mp4',
   '.json': 'application/json; charset=utf-8',
+  '.ico': 'image/x-icon',
 };
-
-function redirect(res: ServerResponse, location: string) {
-  res.writeHead(303, { Location: location, 'Cache-Control': 'no-store' });
-  res.end();
-}
-
-async function serveDoyle(req: IncomingMessage, res: ServerResponse, pathname: string) {
-  const token = parseCookies(req.headers.cookie)[SESSION_COOKIE];
-  const ctx = await resolveSession(pg, token);
-  if (!ctx) return redirect(res, '/');
-  if (!hasDoyleWorkspace(ctx)) throw new DomainError('Нет доступа к кабинету Doyle', 403);
-  if (pathname === '/doyle' || pathname === '/doyle/') return redirect(res, '/doyle/tournaments.html');
-  const { content, extension } = pathname === '/doyle-office.js'
-    ? { content: await readFile(new URL('../deploy/doyle-office.js', import.meta.url)), extension: '.js' }
-    : await doyleWorkspaceFile(pathname.slice('/doyle/'.length), sha256('doyle-office:' + token));
-  res.writeHead(200, {
-    'Content-Type': MIME[extension.toLowerCase()] || 'application/octet-stream',
-    'Cache-Control': extension === '.html' ? 'no-store' : 'private, max-age=300',
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-    'Referrer-Policy': 'same-origin',
-  });
-  res.end(content);
-}
 
 async function serveStatic(res: ServerResponse, pathname: string) {
   const clean = pathname === '/' ? '/index.html' : pathname;
@@ -174,7 +145,6 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
       memberships: ctx.memberships,
       defaultTournamentId: defaultTournament,
       doyleAccess: hasDoyleAccess(ctx),
-      doyleWorkspace: hasDoyleWorkspace(ctx),
     });
   }
 
@@ -256,16 +226,6 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     return sendJson(res, 200, await readDoyleRows(ctx));
   }
 
-  if (method === 'POST' && url.pathname === '/api/doyle/session') {
-    const origin = (SECURE_COOKIES ? 'https://' : 'http://') + req.headers.host;
-    if (req.headers.origin !== origin || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin')) {
-      throw new DomainError('Недопустимый источник запроса', 403);
-    }
-    if (!hasDoyleWorkspace(ctx)) throw new DomainError('Нет доступа к кабинету Doyle', 403);
-    checkRateLimit('doyle-session:' + ctx.user.id, 12, 60_000);
-    return sendJson(res, 200, await issueDoyleSession(ctx));
-  }
-
   if (method === 'POST' && url.pathname === '/api/auth/switch-club') {
     const body = await readJson(req);
     await switchSessionClub(pg, rawSessionToken!, String(body.clubId || ''));
@@ -342,8 +302,6 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url || '/', 'http://' + (req.headers.host || 'localhost'));
     if (url.pathname.startsWith('/api/')) {
       await handleApi(req, res, url);
-    } else if (url.pathname === '/doyle' || url.pathname.startsWith('/doyle/') || url.pathname === '/doyle-office.js') {
-      await serveDoyle(req, res, url.pathname);
     } else {
       await serveStatic(res, url.pathname);
     }

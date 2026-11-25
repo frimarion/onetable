@@ -1,4 +1,4 @@
-import type { DoyleResource } from '../shared/doyleQueries';
+import { doyleQueries, optionalDoyleResources, type DoyleResource } from '../shared/doyleQueries';
 import type {
   Club, Entry, JournalItem, Payment, Player, Session, Snapshot, Table, Tournament, Visit,
 } from '../shared/model';
@@ -7,6 +7,30 @@ import {
 } from '../shared/operations';
 import { baseRatingPresets, defaultRatingScheme } from '../shared/rating';
 import type { BroadcastSummary, CrmData, PipelineStage, PlayerNote, RegistrationRecord } from '../shared/crm';
+
+export const DOYLE_HOSTS = [
+  'https://r.doylepoker.ru',
+  'https://doylepoker.ru/sb',
+  'https://api.doylepoker.ru',
+  'https://gw.doylepoker.ru',
+];
+
+const DEFAULT_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzEzMjI1NjAwLCJleHAiOjE4Njg5OTIwMDB9.JEHfDm5ghdB_UgORrAXZzjcT8TFdecTPs88C77sm5MA';
+
+const STORAGE_AUTH_KEY = 'onetable-doyle-auth-v1';
+const STORAGE_HOST_KEY = 'onetable-doyle-host-v1';
+
+export type DoyleAuth = {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+  userId: string;
+  email: string;
+  role: 'admin' | 'superadmin' | 'operator';
+  isAdmin: boolean;
+  host?: string;
+};
 
 type DoyleTournamentRow = {
   id: number;
@@ -105,8 +129,159 @@ type DoyleBroadcastRow = {
   created_at: string;
 };
 
-function normalizeDoylePhoto(url: string | null | undefined): string | null {
-  return url?.replace(/^https:\/\/(?:r|api|gw)\.doylepoker\.ru/i, 'https://r.doylepoker.ru') ?? null;
+const envUrl = (import.meta.env.VITE_DOYLE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '');
+const envKey = (import.meta.env.VITE_DOYLE_SUPABASE_ANON_KEY as string | undefined) || DEFAULT_ANON_KEY;
+
+function activeHostOrder(): string[] {
+  const saved = (() => {
+    try { return localStorage.getItem(STORAGE_HOST_KEY) || ''; } catch { return ''; }
+  })();
+  const base = envUrl ? [envUrl, ...DOYLE_HOSTS.filter(h => h !== envUrl)] : [...DOYLE_HOSTS];
+  if (saved && base.includes(saved)) return [saved, ...base.filter(h => h !== saved)];
+  return base;
+}
+
+let currentWorkingHost = activeHostOrder()[0];
+
+export function normalizeDoylePhoto(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return url.replace(/^https:\/\/(?:r|api|gw)\.doylepoker\.ru/i, currentWorkingHost);
+}
+
+async function doyleFetch(path: string, init: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
+  const hosts = activeHostOrder();
+  let lastError: unknown;
+  for (const host of hosts) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+    const parentSignal = init.signal;
+    const onAbort = () => controller.abort();
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        window.clearTimeout(timer);
+        throw new DOMException('Aborted', 'AbortError');
+      }
+      parentSignal.addEventListener('abort', onAbort, { once: true });
+    }
+    try {
+      const response = await fetch(host + path, { ...init, signal: controller.signal });
+      window.clearTimeout(timer);
+      parentSignal?.removeEventListener('abort', onAbort);
+      currentWorkingHost = host;
+      try { localStorage.setItem(STORAGE_HOST_KEY, host); } catch { /* ignore */ }
+      return response;
+    } catch (error) {
+      window.clearTimeout(timer);
+      parentSignal?.removeEventListener('abort', onAbort);
+      if (parentSignal?.aborted) throw error;
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Сервер Дойла недоступен');
+}
+
+export function loadSavedDoyleAuth(): DoyleAuth | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_AUTH_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DoyleAuth;
+    if (!parsed?.accessToken || !parsed?.refreshToken || !parsed?.email) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function saveDoyleAuth(auth: DoyleAuth | null) {
+  try {
+    if (auth) localStorage.setItem(STORAGE_AUTH_KEY, JSON.stringify(auth));
+    else localStorage.removeItem(STORAGE_AUTH_KEY);
+  } catch { /* ignore */ }
+}
+
+export async function doyleSignIn(email: string, password: string): Promise<DoyleAuth> {
+  const resp = await doyleFetch('/auth/v1/token?grant_type=password', {
+    method: 'POST',
+    headers: { apikey: envKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim(), password }),
+  }, 12000);
+  const body = await resp.json().catch(() => ({})) as Record<string, unknown>;
+  if (!resp.ok) {
+    const msg = String(body.error_description || body.msg || body.message || 'Неверный email или пароль');
+    throw new Error(msg);
+  }
+  const accessToken = String(body.access_token || '');
+  const refreshToken = String(body.refresh_token || '');
+  const expiresIn = Number(body.expires_in || 3600);
+  const user = (body.user || {}) as Record<string, unknown>;
+  const userId = String(user.id || '');
+  const userEmail = String(user.email || email.trim());
+
+  const profileResp = await doyleFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role,is_admin,email`, {
+    headers: { apikey: envKey, Authorization: 'Bearer ' + accessToken },
+  });
+  const profiles = profileResp.ok ? (await profileResp.json()) as { role?: string; is_admin?: boolean }[] : [];
+  const profile = profiles[0];
+  const isAdmin = Boolean(profile?.is_admin);
+  const role = profile?.role === 'superadmin' ? 'superadmin' : profile?.role === 'operator' ? 'operator' : 'admin';
+  if (!isAdmin && role !== 'operator') {
+    throw new Error('У этой учётной записи нет прав администратора или оператора Дойла');
+  }
+
+  const auth: DoyleAuth = {
+    accessToken,
+    refreshToken,
+    expiresAt: Date.now() + expiresIn * 1000,
+    userId,
+    email: userEmail,
+    role,
+    isAdmin,
+    host: currentWorkingHost,
+  };
+  saveDoyleAuth(auth);
+  return auth;
+}
+
+export async function ensureFreshDoyleAuth(auth: DoyleAuth): Promise<DoyleAuth> {
+  if (auth.expiresAt - Date.now() > 90_000) return auth;
+  const resp = await doyleFetch('/auth/v1/token?grant_type=refresh_token', {
+    method: 'POST',
+    headers: { apikey: envKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: auth.refreshToken }),
+  }, 10000);
+  if (!resp.ok) {
+    saveDoyleAuth(null);
+    throw new Error('Сессия Дойла истекла — войдите заново');
+  }
+  const body = await resp.json() as Record<string, unknown>;
+  const next: DoyleAuth = {
+    ...auth,
+    accessToken: String(body.access_token || auth.accessToken),
+    refreshToken: String(body.refresh_token || auth.refreshToken),
+    expiresAt: Date.now() + Number(body.expires_in || 3600) * 1000,
+    host: currentWorkingHost,
+  };
+  saveDoyleAuth(next);
+  return next;
+}
+
+async function restGet<T>(auth: DoyleAuth, path: string, signal?: AbortSignal): Promise<T> {
+  const resp = await doyleFetch('/rest/v1/' + path, {
+    headers: {
+      apikey: envKey,
+      Authorization: 'Bearer ' + auth.accessToken,
+      Accept: 'application/json',
+    },
+    signal,
+  }, 10000);
+  if (resp.status === 401) {
+    throw new Error('Сессия Дойла истекла — войдите заново');
+  }
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(`Ошибка Supabase (${resp.status})${text ? ': ' + text.slice(0, 120) : ''}`);
+  }
+  return resp.json() as Promise<T>;
 }
 
 const DOYLE_CLUB: Club = {
@@ -159,6 +334,22 @@ function mapTournamentState(row: DoyleTournamentRow, room: DoyleRoomRow | undefi
   const hasPresent = players.some(p => Boolean((p as Record<string, unknown>)?.present));
   if (timer.isRunning || timer.isPaused || hasPresent) return 'live';
   return 'scheduled';
+}
+
+export async function loadDoyleSnapshot(
+  rawAuth: DoyleAuth,
+  selectedId: string | null,
+  signal?: AbortSignal,
+): Promise<{ auth: DoyleAuth; snapshot: Snapshot }> {
+  const auth = await ensureFreshDoyleAuth(rawAuth);
+  const snapshot = await mapDoyleSnapshot(selectedId, async resource => {
+    if (optionalDoyleResources.has(resource)) {
+      if (!auth.isAdmin) return [];
+      return restGet<unknown[]>(auth, doyleQueries[resource], signal).catch(() => []);
+    }
+    return restGet<unknown[]>(auth, doyleQueries[resource], signal);
+  });
+  return { auth, snapshot };
 }
 
 export async function mapDoyleSnapshot(

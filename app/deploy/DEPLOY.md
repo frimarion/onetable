@@ -93,25 +93,12 @@ sudo systemctl enable --now onetable
 sudo systemctl status onetable
 ```
 
-Для рабочего кабинета Doyle создайте `/etc/onetable/doyle.env` с правами `600`:
+Для автоматического просмотра Doyle создайте `/etc/onetable/doyle.env` с правами `600`:
 
 - `DOYLE_ONETABLE_USER_ID` — ID связанного владельца клуба `doyle` в базе OneTable.
-- `DOYLE_SUPABASE_USER_ID` — ID той же учётной записи в Auth Doyle. Email должен совпадать, а профиль Doyle должен иметь права администратора.
 - `DOYLE_SERVICE_ROLE_KEY` — серверный ключ Supabase Doyle.
-- `DOYLE_WORKSPACE_DIR` — абсолютный путь к подготовленному релизу админки.
 
-Подготовьте версию рабочего интерфейса из проверенного коммита репозитория Doyle:
-
-```bash
-bash deploy/stage-doyle-workspace.sh /path/to/doyle-timer <commit> /opt/onetable-doyle-<commit>
-```
-
-Укажите путь к релизу в `DOYLE_WORKSPACE_DIR` и перезапустите `onetable`. Владелец
-открывает расписание Doyle сразу после входа. Раздел OneTable с учётными записями
-доступен по `/?workspace=onetable`. При обновлении Doyle подготовьте новый релиз
-той же командой и переключите путь. Сервер выдаёт обычный пользовательский сеанс
-через локальный Auth Supabase `127.0.0.1:8000`. Для учётной записи Doyle с включённой
-двухфакторной аутентификацией нужен прямой вход в Doyle.
+Сервис читает Doyle через локальный шлюз Supabase `127.0.0.1:8000`. После настройки файла перезапустите `onetable`.
 
 ---
 
@@ -145,4 +132,4 @@ ALTER TABLE club_invites ADD COLUMN IF NOT EXISTS table_no integer CHECK (table_
 стола в клубе. Дилеров без номера стола нужно пригласить заново с назначением.
 
 В турнире OneTable кнопка «ТВ-дисплей» открывает отдельную ссылку для экрана.
-Кабинет Doyle выдаёт действующие ссылки на экран Doyle для выбранной игры.
+В связанном кабинете Doyle эта кнопка открывает экран Doyle в текущей учётной записи владельца.
