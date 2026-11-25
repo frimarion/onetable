@@ -15,13 +15,22 @@ test('Адрес кабинета однозначно задаёт клуб', (
 
 test('Пропуск для чтения Doyle одноразовый и действует 30 секунд', () => {
   const session = 'fixture-session';
-  const ticket = issueDoyleReadTicket(session, 1000);
+  const ticket = issueDoyleReadTicket(session, { now: 1000 });
   assert.notEqual(ticket, session);
   assert.equal(redeemDoyleReadTicket(ticket, 1000), undefined);
   assert.equal(redeemDoyleReadTicket(`Bearer ${ticket}`, 30_999), session);
   assert.equal(redeemDoyleReadTicket(`Bearer ${ticket}`, 30_999), undefined);
-  const expired = issueDoyleReadTicket(session, 1000);
+  const expired = issueDoyleReadTicket(session, { now: 1000 });
   assert.equal(redeemDoyleReadTicket(`Bearer ${expired}`, 31_000), undefined);
+});
+
+test('Пропуск Doyle продлевается при чтении и истекает после 15 минут без обращений', () => {
+  const session = 'fixture-renewable-session';
+  const ticket = issueDoyleReadTicket(session, { now: 1000, renewable: true });
+  const header = `Bearer ${ticket}`;
+  assert.equal(redeemDoyleReadTicket(header, 1001), session);
+  assert.equal(redeemDoyleReadTicket(header, 900_001), session);
+  assert.equal(redeemDoyleReadTicket(header, 1_800_001), undefined);
 });
 
 test('Клуб из адреса сохраняет роли и изоляцию вкладок при смене клуба по умолчанию', async () => {

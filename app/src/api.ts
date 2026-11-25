@@ -31,6 +31,7 @@ export type ProdAuthState = {
   doyleAccess?: boolean;
   doyleWrite?: boolean;
   doyleUnavailable?: boolean;
+  doyleGatewayTicket?: string;
   defaultTournamentId?: string | null;
 };
 
@@ -52,7 +53,11 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
   return body as T;
 }
 
-async function loadDoyleRows(headers: Headers, preferGateway: boolean, signal?: AbortSignal) {
+type DoyleRoute = { gateway: boolean; measuredAt: number };
+type DoyleGatewayAccess = { ticket?: string };
+const DOYLE_ROUTE_RECHECK_MS = 5 * 60_000;
+
+async function loadDoyleRows(headers: Headers, access: DoyleGatewayAccess, route?: DoyleRoute, signal?: AbortSignal) {
   const path = '/api/doyle/snapshot';
   if (location.origin !== ONETABLE_APP_ORIGIN) {
     return { rows: await request<DoyleRows>(path, { headers, signal }), gateway: false };
@@ -60,19 +65,32 @@ async function loadDoyleRows(headers: Headers, preferGateway: boolean, signal?: 
 
   const controller = new AbortController();
   const snapshotSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
-  const read = async (url: string, options: RequestInit, gateway: boolean) => {
-    const rows = await request<DoyleRows>(url, { ...options, signal: snapshotSignal });
-    if (!Array.isArray(rows.tournaments)) throw new Error('Не удалось загрузить данные Doyle');
+  const result = (rows: DoyleRows, gateway: boolean) => {
+    if (!Array.isArray(rows?.tournaments)) throw new Error('Не удалось загрузить данные Doyle');
     return { rows, gateway };
   };
-  const direct = () => read(path, { headers }, false);
+  const direct = async () => result(await request<DoyleRows>(path, { headers, signal: snapshotSignal }), false);
+  const readGateway = (ticket: string) => fetch(DOYLE_GATEWAY_ORIGIN + path, {
+    credentials: 'omit', redirect: 'error', headers: { Authorization: `Bearer ${ticket}` }, signal: snapshotSignal,
+  });
   const viaGateway = async () => {
-    const { ticket } = await request<{ ticket: string }>('/api/doyle/read-ticket', { method: 'POST', signal: snapshotSignal });
-    return read(DOYLE_GATEWAY_ORIGIN + path, {
-      credentials: 'omit', redirect: 'error', headers: { Authorization: `Bearer ${ticket}` },
-    }, true);
+    const ticket = access.ticket;
+    let response = ticket ? await readGateway(ticket) : undefined;
+    if (!response || response.status === 401) {
+      if (access.ticket === ticket) access.ticket = undefined;
+      const renewed = await request<{ ticket: string }>('/api/doyle/read-ticket?renewable=1', {
+        method: 'POST', signal: snapshotSignal,
+      });
+      if (!renewed.ticket) throw new Error('Не удалось получить доступ к данным Doyle');
+      access.ticket = renewed.ticket;
+      response = await readGateway(renewed.ticket);
+    }
+    if (!response.ok) throw new Error(`Не удалось загрузить данные Doyle (${response.status})`);
+    return result(await response.json() as DoyleRows, true);
   };
 
+  const knownRoute = route && Date.now() - route.measuredAt < DOYLE_ROUTE_RECHECK_MS ? route : undefined;
+  const preferGateway = Boolean(knownRoute?.gateway);
   const primary = preferGateway ? viaGateway() : direct();
   let backupTimer: number | undefined;
   const backup = new Promise<Awaited<typeof primary>>((resolve, reject) => {
@@ -82,7 +100,7 @@ async function loadDoyleRows(headers: Headers, preferGateway: boolean, signal?: 
       backupTimer = undefined;
       (preferGateway ? direct() : viaGateway()).then(resolve, reject);
     };
-    backupTimer = window.setTimeout(start, 4000);
+    backupTimer = window.setTimeout(start, knownRoute ? 1500 : 0);
     void primary.catch(start);
   });
   try {
@@ -109,7 +127,8 @@ export function useOffice(doyleTvTournament?: string) {
   const [busy, setBusy] = useState(false);
   const pending = useRef<{ key: string; id: string } | undefined>(undefined);
   const inFlight = useRef(false);
-  const preferDoyleGateway = useRef(false);
+  const doyleRoute = useRef<DoyleRoute | undefined>(undefined);
+  const doyleGatewayAccess = useRef<DoyleGatewayAccess>({});
   const prodModeRef = useRef(prodMode);
   prodModeRef.current = prodMode;
 
@@ -127,6 +146,7 @@ export function useOffice(doyleTvTournament?: string) {
     const headers = workspaceHeaders(undefined, doyleTvTournament ? DOYLE_CLUB_ID : undefined);
     const resp = await fetch('/api/auth/me', { credentials: 'same-origin', headers });
     if (resp.status === 401) {
+      doyleGatewayAccess.current = {};
       setProdAuth(null);
       setError('');
       setAuthChecked(true);
@@ -134,6 +154,7 @@ export function useOffice(doyleTvTournament?: string) {
     }
     const body = await resp.json() as ProdAuthState & { error?: string };
     if (resp.status === 403) {
+      doyleGatewayAccess.current = {};
       setProdAuth(null);
       setError(body.error || 'У вас нет доступа к этому клубу');
       setAuthChecked(true);
@@ -143,7 +164,9 @@ export function useOffice(doyleTvTournament?: string) {
     if (!doyleTvTournament && !new URLSearchParams(location.search).has('invite')) {
       history.replaceState(null, '', workspacePath(body.session.club.id));
     }
-    setProdAuth(body);
+    const { doyleGatewayTicket, ...auth } = body;
+    doyleGatewayAccess.current = { ticket: doyleGatewayTicket };
+    setProdAuth(auth);
     const defaultId = body.defaultTournamentId ?? '';
     setId(body.doyleAccess ? doyleTvTournament || '' : defaultId);
     setError('');
@@ -169,10 +192,14 @@ export function useOffice(doyleTvTournament?: string) {
   const refresh = useCallback(async (signal?: AbortSignal) => {
     if (isDoyleLive && activeSession) {
       const headers = workspaceHeaders(undefined, activeSession.club.id);
-      const { rows, gateway } = await loadDoyleRows(headers, preferDoyleGateway.current, signal);
+      const { rows, gateway } = await loadDoyleRows(headers, doyleGatewayAccess.current, doyleRoute.current, signal);
       const next = await mapDoyleSnapshot(activeSession.club, id || null, async resource => rows[resource], rows);
       if (!signal?.aborted) {
-        preferDoyleGateway.current = gateway;
+        const route = doyleRoute.current;
+        const now = Date.now();
+        if (!route || route.gateway !== gateway || now - route.measuredAt >= DOYLE_ROUTE_RECHECK_MS) {
+          doyleRoute.current = { gateway, measuredAt: now };
+        }
         setSnapshot({ data: next, token: activeToken });
         setId(next.tournament.id);
         setError('');
@@ -389,6 +416,8 @@ export function useOffice(doyleTvTournament?: string) {
   }
   async function prodLogout() {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+    doyleGatewayAccess.current = {};
+    doyleRoute.current = undefined;
     history.replaceState(null, '', '/');
     setProdAuth(null);
     setSnapshot(undefined);
