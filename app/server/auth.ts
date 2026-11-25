@@ -202,7 +202,7 @@ export async function loginWithPassword(
   });
 }
 
-export async function resolveSession(pg: PgAdapter, rawToken: string | undefined): Promise<AuthContext | null> {
+export async function resolveSession(pg: PgAdapter, rawToken: string | undefined, requestedClubId?: string): Promise<AuthContext | null> {
   if (!rawToken || rawToken.length < 20) return null;
   const tokenHash = sha256(rawToken);
   const now = Date.now();
@@ -237,7 +237,10 @@ export async function resolveSession(pg: PgAdapter, rawToken: string | undefined
       tableNo: r.table_no,
     }));
 
-    const current = memberships.find(m => m.club.id === row.club_id) ?? memberships[0];
+    const current = requestedClubId === undefined
+      ? memberships.find(m => m.club.id === row.club_id) ?? memberships[0]
+      : memberships.find(m => m.club.id === requestedClubId);
+    if (requestedClubId !== undefined && !current) throw new DomainError('У вас нет доступа к этому клубу', 403);
     if (!current) return null;
 
     return {

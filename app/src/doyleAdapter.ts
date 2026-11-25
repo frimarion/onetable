@@ -1,6 +1,6 @@
 import type { DoyleResource } from '../shared/doyleQueries';
 import type {
-  Club, Entry, JournalItem, Payment, Player, Session, Snapshot, Table, Tournament, Visit,
+  Club, Entry, JournalItem, Payment, Player, Snapshot, Table, Tournament, Visit,
 } from '../shared/model';
 import {
   defaultConfig, defaultDisplay, formats, type Config, type Level, type MoneyMethod, type Preset, type Result,
@@ -111,22 +111,6 @@ function normalizeDoylePhoto(url: string | null | undefined): string | null {
   return url?.replace(/^https:\/\/(?:r|api|gw)\.doylepoker\.ru/i, 'https://r.doylepoker.ru') ?? null;
 }
 
-const DOYLE_CLUB: Club = {
-  id: 'doyle-live',
-  name: 'Doyle Poker Club',
-  venue: 'Москва · Supabase',
-  accent: '#2BD98A',
-};
-
-export function doyleSessionOf(identity: string): Session {
-  return {
-    token: 'doyle-supabase:' + identity,
-    club: DOYLE_CLUB,
-    role: 'admin',
-    table: null,
-  };
-}
-
 function toMs(iso: string | null | undefined, fallback: number): number {
   if (!iso) return fallback;
   const parsed = Date.parse(iso);
@@ -164,6 +148,7 @@ function mapTournamentState(row: DoyleTournamentRow, room: DoyleRoomRow | undefi
 }
 
 export async function mapDoyleSnapshot(
+  club: Club,
   selectedId: string | null,
   read: (resource: DoyleResource) => Promise<unknown[]>,
 ): Promise<Snapshot> {
@@ -199,7 +184,7 @@ export async function mapDoyleSnapshot(
     const room = row.room_id ? roomsById.get(row.room_id) : undefined;
     const state = room?.state;
     return {
-      id: String(row.id), clubId: DOYLE_CLUB.id, name: row.name, state: mapTournamentState(row, room), startsAt: row.date,
+      id: String(row.id), clubId: club.id, name: row.name, state: mapTournamentState(row, room), startsAt: row.date,
       description: typeof state?.onetableDescription === 'string' ? state.onetableDescription : '',
       layout: typeof state?.onetableLayout === 'string' ? state.onetableLayout : null,
     };
@@ -218,7 +203,7 @@ export async function mapDoyleSnapshot(
 
   const activeTournament: Tournament = tournamentRow
     ? schedule.find(s => s.id === String(tournamentRow.id))!
-    : { id: 'empty', clubId: DOYLE_CLUB.id, name: 'Нет турниров', state: 'draft', startsAt: null, description: '', layout: null };
+    : { id: 'empty', clubId: club.id, name: 'Нет турниров', state: 'draft', startsAt: null, description: '', layout: null };
 
   const activeRoom = tournamentRow?.room_id ? roomsById.get(tournamentRow.room_id) : undefined;
   const activeState = (activeRoom?.state || {}) as Record<string, unknown>;
@@ -704,7 +689,7 @@ export async function mapDoyleSnapshot(
   const snapshot: Snapshot = {
     tournament: activeTournament,
     schedule,
-    club: DOYLE_CLUB,
+    club,
     role: 'admin',
     revision: Number(activeRoom?.version ?? 0) || 0,
     serverTime: now,

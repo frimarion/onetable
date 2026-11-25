@@ -4,12 +4,17 @@ import { DomainError } from './validation.ts';
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { Command, CommandResult } from '../shared/model.ts';
 import { planDoyleCommand, type DoyleGame, type DoyleRoom } from './doyleCommands.ts';
+import { DOYLE_CLUB_ID } from '../shared/workspace.ts';
 
 const linkedUserId = process.env.DOYLE_ONETABLE_USER_ID;
 const serviceKey = process.env.DOYLE_SERVICE_ROLE_KEY;
 
+export function usesDoyleData(ctx: AuthContext): boolean {
+  return Boolean(serviceKey && linkedUserId && ctx.club.id === DOYLE_CLUB_ID);
+}
+
 export function hasDoyleAccess(ctx: AuthContext): boolean {
-  return Boolean(serviceKey && linkedUserId === ctx.user.id && ctx.club.id === 'doyle' && ctx.memberRole === 'owner');
+  return usesDoyleData(ctx) && linkedUserId === ctx.user.id && ctx.memberRole === 'owner';
 }
 
 export function canWriteDoyle(ctx: AuthContext): boolean {

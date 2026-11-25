@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MemberRole } from '../shared/access';
 import type { Command, CommandResult, Session, Snapshot } from '../shared/model';
 import type { DoyleRows } from '../shared/doyleQueries';
-import { doyleSessionOf, mapDoyleSnapshot } from './doyleAdapter';
+import { mapDoyleSnapshot } from './doyleAdapter';
+import { CLUB_HEADER, DOYLE_CLUB_ID, workspaceClubId, workspacePath } from '../shared/workspace';
 
 export type ProdAuthState = {
   user: { id: string; email: string; name: string; isSuperadmin: boolean };
@@ -11,11 +12,18 @@ export type ProdAuthState = {
   memberships: { club: Session['club']; role: MemberRole; tableNo: number | null }[];
   doyleAccess?: boolean;
   doyleWrite?: boolean;
+  doyleUnavailable?: boolean;
   defaultTournamentId?: string | null;
 };
 
+function workspaceHeaders(values?: HeadersInit, clubId = workspaceClubId(location.pathname)) {
+  const headers = new Headers(values);
+  if (clubId && !headers.has(CLUB_HEADER)) headers.set(CLUB_HEADER, clubId);
+  return headers;
+}
+
 export async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(path, { credentials: 'same-origin', ...options });
+  const response = await fetch(path, { credentials: 'same-origin', ...options, headers: workspaceHeaders(options?.headers) });
   const text = await response.text();
   let body: Record<string, unknown> = {};
   try { body = text ? (JSON.parse(text) as Record<string, unknown>) : {}; } catch { /* non-JSON proxy response */ }
@@ -42,36 +50,40 @@ export function useOffice(doyleTvTournament?: string) {
   const prodModeRef = useRef(prodMode);
   prodModeRef.current = prodMode;
 
-  const useLinkedDoyle = Boolean(prodAuth?.doyleAccess);
-  const isDoyleLive = useLinkedDoyle;
-  const doyleIdentity = useLinkedDoyle ? prodAuth?.user.id : undefined;
-  const activeSession = doyleIdentity
-    ? doyleSessionOf(doyleIdentity)
-    : prodMode
-      ? prodAuth?.session
-      : sessions.find(item => item.token === token);
+  const isDoyleLive = Boolean(prodAuth?.doyleAccess);
+  const activeSession = prodMode ? prodAuth?.session : sessions.find(item => item.token === token);
   const activeToken = activeSession?.token ?? token;
   const activeRole = activeSession?.role;
-  const activeSessions = isDoyleLive && activeSession
-    ? [activeSession]
-    : prodMode && prodAuth
-      ? prodAuth.memberships.map(m => ({ token: 'club:' + m.club.id, club: m.club, role: (m.role === 'dealer' || m.role === 'floor' ? m.role : 'admin') as Session['role'], memberRole: m.role, table: m.tableNo }))
-      : sessions;
+  const activeSessions = prodMode && prodAuth
+    ? prodAuth.memberships.map(m => ({ token: 'club:' + m.club.id, club: m.club, role: (m.role === 'dealer' || m.role === 'floor' ? m.role : 'admin') as Session['role'], memberRole: m.role, table: m.tableNo }))
+    : sessions;
   const data = snapshot?.token === activeToken && (!id || snapshot.data.tournament.id === id) ? snapshot.data : undefined;
   const path = '/api/tournaments/' + id;
 
   const loadProdMe = useCallback(async () => {
-    const resp = await fetch('/api/auth/me', { credentials: 'same-origin' });
+    const headers = workspaceHeaders(undefined, doyleTvTournament ? DOYLE_CLUB_ID : undefined);
+    const resp = await fetch('/api/auth/me', { credentials: 'same-origin', headers });
     if (resp.status === 401) {
       setProdAuth(null);
+      setError('');
       setAuthChecked(true);
       return;
     }
     const body = await resp.json() as ProdAuthState & { error?: string };
+    if (resp.status === 403) {
+      setProdAuth(null);
+      setError(body.error || 'У вас нет доступа к этому клубу');
+      setAuthChecked(true);
+      return;
+    }
     if (!resp.ok) throw new Error(body.error || 'Ошибка авторизации');
+    if (!doyleTvTournament && !new URLSearchParams(location.search).has('invite')) {
+      history.replaceState(null, '', workspacePath(body.session.club.id));
+    }
     setProdAuth(body);
     const defaultId = body.defaultTournamentId ?? '';
     setId(body.doyleAccess ? doyleTvTournament || '' : defaultId);
+    setError('');
     setAuthChecked(true);
   }, [doyleTvTournament]);
 
@@ -92,9 +104,10 @@ export function useOffice(doyleTvTournament?: string) {
   useEffect(load, [load]);
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
-    if (useLinkedDoyle) {
-      const rows = await request<DoyleRows>('/api/doyle/snapshot', { signal });
-      const next = await mapDoyleSnapshot(id || null, async resource => rows[resource]);
+    if (isDoyleLive && activeSession) {
+      const headers = workspaceHeaders(undefined, activeSession.club.id);
+      const rows = await request<DoyleRows>('/api/doyle/snapshot', { signal, headers });
+      const next = await mapDoyleSnapshot(activeSession.club, id || null, async resource => rows[resource]);
       if (!signal?.aborted) {
         setSnapshot({ data: next, token: activeToken });
         setId(next.tournament.id);
@@ -110,7 +123,7 @@ export function useOffice(doyleTvTournament?: string) {
         previous.data.serverTime > next.serverTime ? previous : { data: next, token: activeToken });
       setError('');
     }
-  }, [path, token, activeToken, id, useLinkedDoyle]);
+  }, [path, token, activeToken, id, isDoyleLive, activeSession]);
 
   useEffect(() => {
     if (!activeRole) return;
@@ -150,7 +163,7 @@ export function useOffice(doyleTvTournament?: string) {
       const headers: Record<string, string> = { Accept: 'text/event-stream' };
       if (!prodMode) headers.Authorization = 'Bearer ' + token;
       try {
-        const response = await fetch('/api/office/updates', { headers, signal: controller.signal });
+        const response = await fetch('/api/office/updates', { headers: workspaceHeaders(headers), signal: controller.signal });
         if (!response.ok || !response.headers.get('Content-Type')?.startsWith('text/event-stream') || !response.body) {
           await response.body?.cancel();
           return;
@@ -220,7 +233,7 @@ export function useOffice(doyleTvTournament?: string) {
   }, [notice]);
 
   async function select(next: Session) {
-    if (inFlight.current || isDoyleLive) return;
+    if (inFlight.current) return;
     if (prodMode) {
       if (next.club.id === prodAuth?.session.club.id) return;
       setBusy(true);
@@ -228,8 +241,7 @@ export function useOffice(doyleTvTournament?: string) {
         await request('/api/auth/switch-club', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubId: next.club.id }),
         });
-        setSnapshot(undefined);
-        await loadProdMe();
+        location.assign(workspacePath(next.club.id));
       } catch (reason) {
         setNotice(reason instanceof Error ? reason.message : 'Не удалось открыть клуб');
       } finally {
@@ -244,7 +256,7 @@ export function useOffice(doyleTvTournament?: string) {
   }
   async function external(role: 'dealer' | 'display', table = 1) {
     if (isDoyleLive) {
-      if (role === 'display') window.open('/#' + new URLSearchParams({ 'doyle-tv': id }), '_blank', 'noopener');
+      if (role === 'display') window.open(workspacePath(DOYLE_CLUB_ID) + '#' + new URLSearchParams({ 'doyle-tv': id }), '_blank', 'noopener');
       return;
     }
     if (prodMode) {
@@ -269,7 +281,8 @@ export function useOffice(doyleTvTournament?: string) {
     if (isDoyleLive) {
       throw new Error('Экспорт Excel доступен в локальном режиме или через админку Дойла');
     }
-    const response = await fetch(path + '/payments.xlsx', { headers: { Authorization: 'Bearer ' + token } });
+    const headers = workspaceHeaders(prodMode ? undefined : { Authorization: 'Bearer ' + token });
+    const response = await fetch(path + '/payments.xlsx', { headers });
     if (!response.ok) {
       const err = await response.json();
       throw new Error(err.error || 'Не удалось скачать отчёт');
@@ -312,9 +325,11 @@ export function useOffice(doyleTvTournament?: string) {
   }
   async function prodLogout() {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+    history.replaceState(null, '', '/');
     setProdAuth(null);
     setSnapshot(undefined);
     setNotice('');
+    setError('');
   }
   const run: Run = async (action, after) => {
     if (isDoyleLive && !prodAuth?.doyleWrite) {
@@ -325,7 +340,7 @@ export function useOffice(doyleTvTournament?: string) {
     inFlight.current = true;
     setBusy(true);
     setNotice('');
-    const endpoint = useLinkedDoyle
+    const endpoint = isDoyleLive
       ? '/api/doyle/tournaments/' + id + '/commands'
       : action.type === 'createTournament' || action.type === 'copyTournamentWeek'
         ? '/api/clubs/' + activeSession?.club.id + '/tournaments' : path + '/commands';

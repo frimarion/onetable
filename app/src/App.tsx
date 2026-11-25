@@ -100,7 +100,7 @@ export function App() {
   const [modal, setModal] = useState<Modal>();
   const open = (next: Modal) => { setNotice(''); setModal(next); };
   const admin = sessions.find(item => item.role === 'admin' && item.club.id === session?.club.id);
-  if (prodMode && authChecked && (!prodAuth || new URLSearchParams(location.search).has('invite'))) {
+  if (prodMode && authChecked && ((!prodAuth && !error) || new URLSearchParams(location.search).has('invite'))) {
     return <ProdAuthScreen busy={busy} onLogin={prodLogin} onAcceptInvite={prodAcceptInvite} />;
   }
 
@@ -109,7 +109,7 @@ export function App() {
   const staffDesk = prodMode && (session?.role === 'floor' || session?.role === 'dealer');
   const clubSelector = session && sessions.length > 1 && <div className="club-switch">
     <label htmlFor="club">Рабочее пространство</label>
-    <select id="club" value={session.club.id} disabled={busy} onChange={event => {
+    <select id="club" aria-label="Рабочее пространство" value={session.club.id} disabled={busy} onChange={event => {
       const next = sessions.find(item => item.club.id === event.target.value && (prodMode || item.role === 'admin'));
       if (next) { setView('tournaments'); setModal(undefined); void select(next); }
     }}>
@@ -117,7 +117,7 @@ export function App() {
         <option key={item.club.id} value={item.club.id}>{item.club.name}</option>)}
     </select>
   </div>;
-  if (session && (staffDesk || waitingForTournament)) {
+  if (session && (staffDesk || waitingForTournament || prodAuth?.doyleUnavailable)) {
     return <div className={staffDesk ? 'shell dealer-shell' : 'shell admin-shell'}>
       <header className="topbar"><Brand /><div className="top-right"><ThemeSwitch />
         <button className="button compact" onClick={() => void prodLogout()}><LogOut size={16} /> Выйти</button>
@@ -131,7 +131,10 @@ export function App() {
       </aside>}
       <main className="sheet account-sheet">
         {staffDesk && clubSelector}
-        {staffDesk ? (data ? <StaffTournament key={data.club.id} data={data} tableNo={session.table} busy={busy}
+        {prodAuth?.doyleUnavailable && view !== 'accounts' ? <>
+          <Heading title="Турниры" subtitle={session.club.name} />
+          <p className="alert" role="status">Для вашей учётной записи доступ к турнирам Doyle ещё не настроен.</p>
+        </> : staffDesk ? (data ? <StaffTournament key={data.club.id} data={data} tableNo={session.table} busy={busy}
           run={run} setId={id => { office.setId(id); setModal(undefined); }} open={open} />
           : <Heading title={error || (waitingForTournament ? 'Нет доступных турниров' : 'Загружаем турнир…')} subtitle={session.club.name} />)
           : view === 'accounts' && accounts ? <ClubAccounts key={session.club.id} club={session.club} />
@@ -152,16 +155,17 @@ export function App() {
 
   if (!session || !data) {
     return <main className="standalone"><Brand /><h1>{error ? 'Не удалось открыть кабинет' : isDoyleLive ? 'Загружаем данные Дойла…' : 'Загружаем кабинет'}</h1>
-      {error && <><p>{error}</p><div className="actions">
+      {error && <><p>{error}</p>{clubSelector}<div className="actions">
+        {prodMode && !prodAuth && <a className="button" href="/">Открыть основной клуб</a>}
         {prodMode && prodAuth && <button className="button" onClick={() => void prodLogout()}>Выйти</button>}
-        <button className="button" onClick={() => { if (sessions.length) location.assign(location.pathname); else office.load(); }}>Повторить</button>
+        <button className="button" onClick={() => location.reload()}>Повторить</button>
       </div></>}
     </main>;
   }
   if (session.role === 'display') return <Display key={data.tournament.id} data={data} error={error} />;
 
   const dealer = session.role === 'dealer';
-  const currentView = view ?? (isDoyleLive ? 'tournaments' : 'live');
+  const currentView = view ?? (prodMode ? 'tournaments' : 'live');
   const allowedView = (currentView === 'accounts' && !accounts) || (currentView === 'finance' && !finances) ? 'tournaments' : currentView;
   const screen = dealer ? 'dealer' : allowedView === 'live' && data.tournament.state === 'draft' ? 'edit' : allowedView;
   const breadcrumb = screen === 'accounts' ? 'Учётные записи' : screen === 'crm' ? 'CRM' : screen === 'rating' ? 'Рейтинг' : screen === 'finance' ? 'Финансы' : dealer ? 'Планшет дилера' : 'Турниры';
@@ -172,7 +176,7 @@ export function App() {
   return <div className={dealer ? 'shell dealer-shell' : 'shell admin-shell'}>
     <header className="topbar">
       <Brand />
-      <div className="top-context"><span>Кабинет клуба</span><ChevronRight size={14} /><span>{breadcrumb}</span></div>
+      <div className="top-context"><span>{session.club.name}</span><ChevronRight size={14} /><span>{breadcrumb}</span></div>
       <div className="top-right">
         <ThemeSwitch />
         {dealer ? <button className="button" onClick={() => admin && select(admin)}><ArrowLeft size={16} /> Кабинет</button> :
@@ -204,12 +208,13 @@ export function App() {
     <main className="sheet">
       {error && <p className="alert" role="status">Связь прервана. Показано последнее состояние.</p>}
       {screen === 'tournaments' && <>
-        <Heading title="Турниры" subtitle={data.club.venue} actions={!isDoyleLive ? <>
+        <Heading title="Турниры" subtitle={session.club.name} actions={!isDoyleLive ? <>
           <a className="button" href={scheduleHref(data.club.id)} target="_blank" rel="noreferrer">Расписание клуба <ExternalLink size={15} /></a>
           <button className="button" disabled={busy} onClick={() => { setNotice(''); setView('week'); }}><CalendarPlus size={17} /> Создать неделю</button>
           <button className="button primary" disabled={busy} onClick={() => { setNotice(''); setView('create'); }}><Plus size={17} /> Создать турнир</button>
         </> : undefined} />
         <section className="panel schedule" aria-label="Список турниров">
+          {!data.schedule.length && <p className="empty">Турниров пока нет</p>}
           {data.schedule.map(item => <button className="schedule-row" key={item.id} disabled={busy} onClick={() => { office.setId(item.id); setView('live'); }}>
             <span><strong>{item.name}</strong><small>{startLabel(item.startsAt)}</small></span><State tournament={item} /><ChevronRight size={17} />
           </button>)}

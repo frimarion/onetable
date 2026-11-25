@@ -12,7 +12,8 @@ import { command, DomainError, snapshot } from './tournament.ts';
 import { publicSchedule } from './definitions.ts';
 import { onlineRegistration } from './registration.ts';
 import { paymentWorkbook } from './paymentWorkbook.ts';
-import { canWriteDoyle, hasDoyleAccess, readDoyleRows, writeDoyleCommand } from './doyle.ts';
+import { canWriteDoyle, hasDoyleAccess, readDoyleRows, usesDoyleData, writeDoyleCommand } from './doyle.ts';
+import { CLUB_HEADER } from '../shared/workspace.ts';
 import { notifyOfficeUpdate, subscribeToOfficeUpdates } from './officeUpdates.ts';
 
 const PORT = Number(process.env.PORT || 4181);
@@ -122,6 +123,8 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   const ua = String(req.headers['user-agent'] || '');
   const cookies = parseCookies(req.headers.cookie);
   const rawSessionToken = cookies[SESSION_COOKIE];
+  const requestedClub = req.headers[CLUB_HEADER];
+  const activeClub = Array.isArray(requestedClub) ? requestedClub.join(',') : requestedClub;
 
   // /api/demo отключён в продакшене намеренно
   if (url.pathname === '/api/demo') {
@@ -130,9 +133,10 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
 
   // ── Авторизация ────────────────────────────────────────────────────────────
   if (method === 'GET' && url.pathname === '/api/auth/me') {
-    const ctx = await resolveSession(pg, rawSessionToken);
+    const ctx = await resolveSession(pg, rawSessionToken, activeClub);
     if (!ctx) return sendJson(res, 401, { error: 'Требуется вход' });
-    const defaultTournament = (await pg.forClub(ctx.club.id).query<{ id: string }>(
+    const doyle = usesDoyleData(ctx);
+    const defaultTournament = doyle ? null : (await pg.forClub(ctx.club.id).query<{ id: string }>(
       `SELECT id FROM tournaments WHERE club_id=$1 AND ($2::boolean OR state<>'draft')
        ORDER BY CASE state WHEN 'live' THEN 0 WHEN 'scheduled' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, starts_at NULLS LAST, id LIMIT 1`,
       [ctx.club.id, ctx.session.role === 'admin'],
@@ -144,6 +148,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
       session: ctx.session,
       memberships: ctx.memberships,
       defaultTournamentId: defaultTournament,
+      doyleUnavailable: doyle && !hasDoyleAccess(ctx),
       doyleAccess: hasDoyleAccess(ctx),
       doyleWrite: canWriteDoyle(ctx),
     });
@@ -216,7 +221,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   }
 
   // ── Защищённые эндпоинты кабинета клуба ────────────────────────────────────
-  const ctx = await resolveSession(pg, rawSessionToken);
+  const ctx = await resolveSession(pg, rawSessionToken, activeClub);
   if (!ctx) return sendJson(res, 401, { error: 'Требуется вход в кабинет' });
 
   if (method === 'GET' && url.pathname === '/api/office/updates') {
@@ -267,6 +272,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
 
   // Изолированный RLS-контекст: ВСЕ дальнейшие запросы физически видят ТОЛЬКО ctx.club.id
   const clubDb = pg.forClub(ctx.club.id);
+  if (usesDoyleData(ctx)) throw new DomainError('Для этого клуба турниры открываются из Doyle', 404);
 
   const tvIssue = /^\/api\/tournaments\/([a-zA-Z0-9_-]+)\/tv-token$/.exec(url.pathname);
   if (method === 'POST' && tvIssue) {
