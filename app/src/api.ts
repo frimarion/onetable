@@ -14,8 +14,10 @@ export type LinkedIdentity = {
   createdAt: number;
 };
 
+export type TelegramAuthMode = 'oidc' | 'widget' | 'none';
+
 export type OAuthProvidersStatus = {
-  telegram: { enabled: boolean; botUsername: string };
+  telegram: { enabled: boolean; mode?: TelegramAuthMode; botUsername: string };
   vk: { enabled: boolean };
   yandex: { enabled: boolean };
 };

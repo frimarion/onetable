@@ -10,7 +10,7 @@ import { TournamentWeek } from './TournamentWeek';
 import { RatingStudio } from './RatingBuilder';
 import { ClubFinance } from './ClubFinance';
 import { MobileNav } from './MobileNav';
-import { ProfileMenu, TelegramWidget } from './ProfileMenu';
+import { OAuthProviderIcon, ProfileMenu, TelegramWidget } from './ProfileMenu';
 import { usePreferences } from './preferences';
 import { ClubAccounts } from './ClubAccounts';
 import { StaffTournament } from './StaffTournament';
@@ -129,17 +129,25 @@ function ProdAuthScreen({ busy, onLogin, onLoginTelegram, onAcceptInvite }: {
         <div className="auth-oauth">
           <div className="auth-oauth-divider"><span>или войти через</span></div>
           <div className="auth-oauth-buttons">
+            {providers.telegram.enabled && providers.telegram.mode === 'oidc' && (
+              <a className="button oauth-btn oauth-telegram" href={`/api/auth/oauth/telegram/start?mode=login&returnTo=${encodeURIComponent(location.pathname)}`}>
+                <OAuthProviderIcon provider="telegram" />
+                <span>Войти через Telegram</span>
+              </a>
+            )}
             {providers.vk.enabled && (
               <a className="button oauth-btn oauth-vk" href={`/api/auth/oauth/vk/start?mode=login&returnTo=${encodeURIComponent(location.pathname)}`}>
-                VK ID
+                <OAuthProviderIcon provider="vk" />
+                <span>Войти через VK ID</span>
               </a>
             )}
             {providers.yandex.enabled && (
               <a className="button oauth-btn oauth-yandex" href={`/api/auth/oauth/yandex/start?mode=login&returnTo=${encodeURIComponent(location.pathname)}`}>
-                Яндекс ID
+                <OAuthProviderIcon provider="yandex" />
+                <span>Войти с Яндекс ID</span>
               </a>
             )}
-            {providers.telegram.enabled && providers.telegram.botUsername && (
+            {providers.telegram.enabled && providers.telegram.mode !== 'oidc' && providers.telegram.botUsername && (
               <div className="auth-tg-wrap">
                 <TelegramWidget botUsername={providers.telegram.botUsername} size="medium" onAuth={user => { void handleTelegram(user); }} />
               </div>

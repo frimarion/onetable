@@ -75,7 +75,7 @@ function sendJson(res: ServerResponse, code: number, data: unknown, extraHeaders
     'Cache-Control': 'no-store',
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
-    'Referrer-Policy': 'same-origin',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
     ...extraHeaders,
   });
   res.end(JSON.stringify(data));
@@ -117,7 +117,7 @@ async function serveStatic(res: ServerResponse, pathname: string) {
     'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
-    'Referrer-Policy': 'same-origin',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
   });
   res.end(content);
 }
@@ -189,9 +189,9 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     }, { 'Set-Cookie': sessionCookieHeader(token, SECURE_COOKIES) });
   }
 
-  const oauthStart = /^\/api\/auth\/oauth\/(vk|yandex)\/start$/.exec(url.pathname);
+  const oauthStart = /^\/api\/auth\/oauth\/(telegram|vk|yandex)\/start$/.exec(url.pathname);
   if (method === 'GET' && oauthStart) {
-    const provider = oauthStart[1] as 'vk' | 'yandex';
+    const provider = oauthStart[1] as OAuthProvider;
     const mode = url.searchParams.get('mode') === 'link' ? 'link' : 'login';
     const returnTo = url.searchParams.get('returnTo') || '/';
     if (mode === 'link') {
@@ -221,9 +221,9 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     }
   }
 
-  const oauthCb = /^\/api\/auth\/oauth\/(vk|yandex)\/callback$/.exec(url.pathname);
+  const oauthCb = /^\/api\/auth\/oauth\/(telegram|vk|yandex)\/callback$/.exec(url.pathname);
   if (method === 'GET' && oauthCb) {
-    const provider = oauthCb[1] as 'vk' | 'yandex';
+    const provider = oauthCb[1] as OAuthProvider;
     const clearStateCookie = oauthStateCookieHeader('', SECURE_COOKIES, true);
     try {
       const { mode, returnTo, identity } = await completeOAuthFlow(provider, url.searchParams, cookies[OAUTH_STATE_COOKIE]);

@@ -137,3 +137,47 @@ ALTER TABLE club_invites ADD COLUMN IF NOT EXISTS table_no integer CHECK (table_
 
 В турнире OneTable кнопка «ТВ-дисплей» открывает отдельную ссылку для экрана.
 В связанном кабинете Doyle эта кнопка открывает экран Doyle в текущей учётной записи владельца.
+
+---
+
+## 8. Вход и привязка через Telegram, VK ID и Яндекс ID
+
+Кнопки на экране входа и в «Настройки профиля → Учётная запись → Способы входа» активируются автоматически, как только заданы переменные окружения в `/etc/onetable/app.env`.
+
+### Telegram (рекомендуется OpenID Connect через `@BotFather`)
+1. Откройте `@BotFather` → выберите бота → **Web Login / Login Widget** → включите **OpenID Connect (OIDC)**.
+2. Укажите:
+   - **Allowed Origin:** `https://app.onetable.pro`
+   - **Redirect URI:** `https://app.onetable.pro/api/auth/oauth/telegram/callback`
+3. Скопируйте `Client ID` и `Client Secret` в `/etc/onetable/app.env`:
+   ```env
+   TELEGRAM_CLIENT_ID=<client_id>
+   TELEGRAM_CLIENT_SECRET=<client_secret>
+   ```
+   *(Альтернатива — классический виджет `telegram-widget.js?24`: выполните `/setdomain` в `@BotFather` на `app.onetable.pro` и задайте `TELEGRAM_BOT_USERNAME` и `TELEGRAM_BOT_TOKEN`.)*
+
+### VK ID (OAuth 2.1 + PKCE, `id.vk.ru`)
+1. Создайте веб-приложение в [кабинете VK ID](https://id.vk.ru/about/business/go).
+2. Укажите:
+   - **Базовый домен:** `app.onetable.pro`
+   - **Доверенный Redirect URL:** `https://app.onetable.pro/api/auth/oauth/vk/callback`
+3. Скопируйте **ID приложения** в `/etc/onetable/app.env`:
+   ```env
+   VK_CLIENT_ID=<app_id>
+   ```
+
+### Яндекс ID (OAuth 2.0 + PKCE)
+1. Создайте приложение в [Яндекс OAuth](https://oauth.yandex.ru/client/new) (платформа «Веб-сервисы»).
+2. В разделе прав отметьте: `Доступ к логину, имени и фамилии, полу` (`login:info`) и `Доступ к портрету пользователя` (`login:avatar`).
+3. Укажите **Redirect URI:** `https://app.onetable.pro/api/auth/oauth/yandex/callback`.
+4. Скопируйте `ClientID` и `Client secret` в `/etc/onetable/app.env`:
+   ```env
+   YANDEX_CLIENT_ID=<client_id>
+   YANDEX_CLIENT_SECRET=<client_secret>
+   ```
+
+После обновления `/etc/onetable/app.env` (и конфига Nginx с `Referrer-Policy: strict-origin-when-cross-origin`) перезапустите сервис:
+```bash
+sudo systemctl restart onetable
+sudo nginx -t && sudo systemctl reload nginx
+```

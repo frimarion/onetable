@@ -37,10 +37,44 @@ const AVATAR_TONES: { value: AvatarTone; label: string }[] = [
 ];
 
 const SOCIAL_PROVIDERS: { id: OAuthProvider; name: string; hint: string; envHint: string }[] = [
-  { id: 'telegram', name: 'Telegram', hint: 'Быстрый вход через Telegram-бота клуба', envHint: 'TELEGRAM_BOT_USERNAME, TELEGRAM_BOT_TOKEN' },
+  { id: 'telegram', name: 'Telegram', hint: 'Быстрый вход через Telegram', envHint: 'TELEGRAM_CLIENT_ID, TELEGRAM_CLIENT_SECRET (или TELEGRAM_BOT_USERNAME, TELEGRAM_BOT_TOKEN)' },
   { id: 'vk', name: 'VK ID', hint: 'Вход в один клик через аккаунт ВКонтакте', envHint: 'VK_CLIENT_ID' },
   { id: 'yandex', name: 'Яндекс ID', hint: 'Вход через учётную запись Яндекса', envHint: 'YANDEX_CLIENT_ID, YANDEX_CLIENT_SECRET' },
 ];
+
+export function OAuthProviderIcon({ provider, size = 18 }: { provider: OAuthProvider; size?: number }) {
+  if (provider === 'telegram') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="oauth-icon oauth-icon-telegram">
+        <circle cx="12" cy="12" r="12" fill="#2AABEE" />
+        <path
+          d="M17.4 7.5 15.3 17.4c-.16.7-.58.87-1.18.54l-3.25-2.4-1.57 1.51c-.17.17-.32.32-.65.32l.23-3.31 6.02-5.44c.26-.23-.06-.36-.4-.13L7.06 13.17l-3.21-1c-.7-.22-.71-.7.15-1.03l12.54-4.83c.58-.21 1.09.14.86 1.19Z"
+          fill="#FFFFFF"
+        />
+      </svg>
+    );
+  }
+  if (provider === 'vk') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="oauth-icon oauth-icon-vk">
+        <rect width="24" height="24" rx="6" fill="#0077FF" />
+        <path
+          d="M12.77 16.5c-4.55 0-7.15-3.12-7.26-8.32h2.28c.07 3.82 1.76 5.44 3.09 5.77V8.18h2.15v3.29c1.31-.14 2.69-1.64 3.16-3.29h2.15c-.36 2.03-1.86 3.53-2.93 4.15 1.07.5 2.78 1.81 3.43 4.17h-2.37c-.51-1.58-1.78-2.81-3.46-2.98v2.98h-.24Z"
+          fill="#FFFFFF"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="oauth-icon oauth-icon-yandex">
+      <circle cx="12" cy="12" r="12" fill="#FC3F1D" />
+      <path
+        d="M13.52 7.1h-1.08c-1.73 0-2.64.88-2.64 2.18 0 1.46.63 2.15 1.92 3.02l1.07.72-3.07 4.58H7.4l2.74-4.1c-1.58-1.13-2.46-2.23-2.46-4.1C7.68 6.99 9.36 5.4 12.46 5.4h3.06v12.2h-2V7.1Z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
 
 const sessionDateFmt = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -128,7 +162,7 @@ export function TelegramWidget({
     };
     el.innerHTML = '';
     const script = document.createElement('script');
-    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.src = 'https://telegram.org/js/telegram-widget.js?24';
     script.async = true;
     script.setAttribute('data-telegram-login', botUsername);
     script.setAttribute('data-size', size);
@@ -627,13 +661,16 @@ export function ProfileSettingsDialog({
                     const isBusy = oauthBusy === provider.id;
                     return (
                       <div key={provider.id} className="social-row">
-                        <div>
-                          <strong>{provider.name}</strong>
-                          <small>
-                            {linked
-                              ? (linked.username ? `${linked.displayName} (@${linked.username.replace(/^@/, '')})` : linked.displayName)
-                              : provider.hint}
-                          </small>
+                        <div className="social-row-main">
+                          <OAuthProviderIcon provider={provider.id} size={22} />
+                          <div>
+                            <strong>{provider.name}</strong>
+                            <small>
+                              {linked
+                                ? (linked.username ? `${linked.displayName} (@${linked.username.replace(/^@/, '')})` : linked.displayName)
+                                : provider.hint}
+                            </small>
+                          </div>
                         </div>
                         <div className="social-row-action">
                           {linked ? (
@@ -652,7 +689,7 @@ export function ProfileSettingsDialog({
                             <span className="state">В рабочем кабинете</span>
                           ) : !enabled ? (
                             <span className="state" title={`Добавьте на сервере: ${provider.envHint}`}>Не настроен</span>
-                          ) : provider.id === 'telegram' && providers?.telegram.botUsername ? (
+                          ) : provider.id === 'telegram' && providers?.telegram.mode !== 'oidc' && providers?.telegram.botUsername ? (
                             <TelegramWidget
                               botUsername={providers.telegram.botUsername}
                               size="small"
