@@ -36,6 +36,16 @@ type TelegramJwk = JsonWebKey & { kid?: string; alg?: string; use?: string };
 const pendingFlows = new Map<string, PendingOAuth>();
 let tgJwksCache: { keys: TelegramJwk[]; fetchedAt: number } | null = null;
 
+async function fetchTelegram(url: string, options?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, { ...options, signal: AbortSignal.timeout(10_000) });
+  } catch (error) {
+    const cause = error instanceof Error ? (error.cause ?? error) : error;
+    console.error('[oauth/telegram] connection failed:', new URL(url).pathname, cause);
+    throw new DomainError('Сервер OneTable не смог связаться с Telegram. Повторите попытку позже.', 502);
+  }
+}
+
 function prunePending(now: number) {
   for (const [key, item] of pendingFlows.entries()) {
     if (now - item.createdAt > STATE_TTL_MS) pendingFlows.delete(key);
@@ -71,6 +81,14 @@ export function oauthStateCookieHeader(state: string, secure: boolean, clear = f
   ];
   if (secure) parts.push('Secure');
   return parts.join('; ');
+}
+
+export function oauthReturnUrl(returnTo: string, result?: ['oauth' | 'oauth_error', string]): string {
+  const origin = 'http://onetable.local';
+  const target = returnTo.startsWith('/') ? URL.parse(returnTo, origin) : null;
+  const safe = target?.origin === origin && !target.pathname.startsWith('//') ? target : new URL('/', origin);
+  if (result) safe.searchParams.set(...result);
+  return safe.pathname + safe.search + safe.hash;
 }
 
 export function verifyTelegramLogin(
@@ -129,9 +147,7 @@ async function fetchTelegramJwks(force = false): Promise<TelegramJwk[]> {
   if (!force && tgJwksCache && now - tgJwksCache.fetchedAt < JWKS_TTL_MS) {
     return tgJwksCache.keys;
   }
-  const resp = await fetch('https://oauth.telegram.org/.well-known/jwks.json', {
-    signal: AbortSignal.timeout(10_000),
-  });
+  const resp = await fetchTelegram('https://oauth.telegram.org/.well-known/jwks.json');
   const body = (await resp.json().catch(() => ({}))) as { keys?: TelegramJwk[] };
   if (!resp.ok || !Array.isArray(body.keys) || !body.keys.length) {
     throw new DomainError('Не удалось получить ключи проверки Telegram', 502);
@@ -223,7 +239,7 @@ export function startOAuthFlow(
   // code_verifier: 64 символа base64url (в пределах PKCE 43..128)
   const codeVerifier = randomBytes(48).toString('base64url');
   const codeChallenge = createHash('sha256').update(codeVerifier, 'ascii').digest('base64url');
-  const safeReturn = returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/';
+  const safeReturn = oauthReturnUrl(returnTo);
 
   if (provider === 'telegram') {
     const clientId = String(process.env.TELEGRAM_CLIENT_ID || '').trim();
@@ -275,26 +291,31 @@ export function startOAuthFlow(
   return { authorizeUrl: url.toString(), state };
 }
 
-export async function completeOAuthFlow(
+export function takePendingOAuthFlow(
   provider: OAuthProvider,
   params: URLSearchParams,
   cookieState: string | undefined,
-): Promise<{ mode: 'login' | 'link'; returnTo: string; identity: VerifiedIdentity }> {
-  const errCode = params.get('error');
-  if (errCode) {
-    throw new DomainError(params.get('error_description') || 'Авторизация отменена', 400);
-  }
+): PendingOAuth {
   const state = params.get('state') || '';
-  const code = params.get('code') || '';
-  if (!state || !code || !cookieState || state !== cookieState) {
+  if (!state || state !== cookieState) {
     throw new DomainError('Сессия входа устарела. Попробуйте ещё раз.', 400);
   }
   const pending = pendingFlows.get(state);
-  pendingFlows.delete(state);
   if (!pending || pending.provider !== provider || Date.now() - pending.createdAt > STATE_TTL_MS) {
     throw new DomainError('Сессия входа истекла. Попробуйте ещё раз.', 400);
   }
+  pendingFlows.delete(state);
+  return pending;
+}
 
+export async function completeOAuthFlow(
+  pending: PendingOAuth,
+  params: URLSearchParams,
+): Promise<VerifiedIdentity> {
+  if (params.has('error')) throw new DomainError('Авторизация отменена или отклонена провайдером', 400);
+  const { provider } = pending;
+  const code = params.get('code');
+  if (!code) throw new DomainError('Провайдер не передал код авторизации. Попробуйте ещё раз.', 400);
   if (provider === 'telegram') {
     const clientId = String(process.env.TELEGRAM_CLIENT_ID || '').trim();
     const clientSecret = String(process.env.TELEGRAM_CLIENT_SECRET || '').trim();
@@ -306,20 +327,19 @@ export async function completeOAuthFlow(
       redirect_uri: pending.redirectUri,
       code_verifier: pending.codeVerifier,
     });
-    const tokenResp = await fetch('https://oauth.telegram.org/token', {
+    const tokenResp = await fetchTelegram('https://oauth.telegram.org/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         Authorization: `Basic ${basicAuth}`,
       },
       body: tokenForm.toString(),
-      signal: AbortSignal.timeout(10_000),
     });
     const tokenBody = (await tokenResp.json().catch(() => ({}))) as Record<string, unknown>;
     const idToken = String(tokenBody.id_token || '');
     if (!tokenResp.ok || !idToken) {
-      console.error('[oauth/telegram] token error:', tokenResp.status, tokenBody);
-      throw new DomainError(String(tokenBody.error_description || tokenBody.error || 'Не удалось получить токен Telegram'), 502);
+      console.error('[oauth/telegram] token exchange failed, HTTP status:', tokenResp.status);
+      throw new DomainError('Telegram не выдал токен авторизации. Попробуйте ещё раз.', 502);
     }
     let keys = await fetchTelegramJwks(false);
     let identity: VerifiedIdentity;
@@ -330,7 +350,7 @@ export async function completeOAuthFlow(
       keys = await fetchTelegramJwks(true);
       identity = verifyTelegramIdToken(idToken, clientId, keys);
     }
-    return { mode: pending.mode, returnTo: pending.returnTo, identity };
+    return identity;
   }
 
   if (provider === 'vk') {
@@ -344,7 +364,7 @@ export async function completeOAuthFlow(
       client_id: clientId,
       device_id: deviceId,
       redirect_uri: pending.redirectUri,
-      state,
+      state: params.get('state') || '',
     });
     const tokenResp = await fetch('https://id.vk.ru/oauth2/auth', {
       method: 'POST',
@@ -375,11 +395,7 @@ export async function completeOAuthFlow(
     const last = String(u?.last_name || '').trim();
     const displayName = [first, last].filter(Boolean).join(' ') || `VK #${providerUserId}`;
     const avatarUrl = typeof u?.avatar === 'string' && u.avatar.startsWith('https://') ? u.avatar.slice(0, 500) : '';
-    return {
-      mode: pending.mode,
-      returnTo: pending.returnTo,
-      identity: { provider: 'vk', providerUserId, username: `id${providerUserId}`, displayName, avatarUrl },
-    };
+    return { provider: 'vk', providerUserId, username: `id${providerUserId}`, displayName, avatarUrl };
   }
 
   // Яндекс ID
@@ -419,9 +435,5 @@ export async function completeOAuthFlow(
   const avatarUrl = avatarId && !info.is_avatar_empty
     ? `https://avatars.yandex.net/get-yapic/${encodeURIComponent(avatarId)}/islands-200`
     : '';
-  return {
-    mode: pending.mode,
-    returnTo: pending.returnTo,
-    identity: { provider: 'yandex', providerUserId, username, displayName, avatarUrl },
-  };
+  return { provider: 'yandex', providerUserId, username, displayName, avatarUrl };
 }

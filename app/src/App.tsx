@@ -10,7 +10,7 @@ import { TournamentWeek } from './TournamentWeek';
 import { RatingStudio } from './RatingBuilder';
 import { ClubFinance } from './ClubFinance';
 import { MobileNav } from './MobileNav';
-import { OAuthProviderIcon, ProfileMenu, TelegramWidget } from './ProfileMenu';
+import { OAuthProviderIcon, ProfileMenu, TelegramWidget, type OAuthResult } from './ProfileMenu';
 import { usePreferences } from './preferences';
 import { ClubAccounts } from './ClubAccounts';
 import { StaffTournament } from './StaffTournament';
@@ -171,34 +171,36 @@ export function App() {
   const [view, setView] = useState<View>();
   const [modal, setModal] = useState<Modal>();
   const [tournamentsPage, setTournamentsPage] = useState(1);
+  const [oauthResult, setOAuthResult] = useState<OAuthResult | null>(() => {
+    const params = new URLSearchParams(location.search);
+    const error = params.get('oauth_error');
+    if (error) return { kind: 'err', text: error };
+    const names: Record<string, string> = { 'linked:vk': 'VK ID', 'linked:yandex': 'Яндекс ID', 'linked:telegram': 'Telegram' };
+    const name = names[params.get('oauth') || ''];
+    return typeof name === 'string' ? { kind: 'ok', text: `${name} успешно привязан к аккаунту` } : null;
+  });
 
   useEffect(() => {
     setTournamentsPage(1);
   }, [session?.club.id, isDoyleLive, prefs.tournamentsPerPage]);
 
   useEffect(() => {
+    if (prodMode && authChecked && !prodAuth) setOAuthResult(null);
+    if (!prodAuth || !oauthResult) return;
     const params = new URLSearchParams(location.search);
-    const linked = params.get('oauth');
-    const oauthErr = params.get('oauth_error');
-    if (linked?.startsWith('linked:')) {
-      const names: Record<string, string> = { vk: 'VK ID', yandex: 'Яндекс ID', telegram: 'Telegram' };
-      const p = linked.slice(7);
-      setNotice(`${names[p] || p} успешно привязан к аккаунту`);
-      params.delete('oauth');
-      const qs = params.toString();
-      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
-    } else if (oauthErr && prodAuth) {
-      setNotice(oauthErr);
-      params.delete('oauth_error');
-      const qs = params.toString();
-      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
-    }
-  }, [prodAuth, setNotice]);
+    if (!params.has('oauth') && !params.has('oauth_error')) return;
+    params.delete('oauth');
+    params.delete('oauth_error');
+    const qs = params.toString();
+    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  }, [prodMode, authChecked, prodAuth, oauthResult]);
 
   const profileControl = (
     <ProfileMenu
       prodMode={prodMode}
       prodAuth={prodAuth}
+      oauthResult={prodAuth ? oauthResult : null}
+      onDismissOAuthResult={() => setOAuthResult(null)}
       onLogout={prodMode && prodAuth ? () => { void prodLogout(); } : undefined}
       onUpdateProfile={async patch => { await updateProfile(patch); }}
       onIdentitiesChange={setIdentities}
