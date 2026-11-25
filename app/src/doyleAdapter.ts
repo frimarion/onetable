@@ -713,7 +713,11 @@ export async function mapDoyleSnapshot(
     structure,
     presets,
     ratingPresets: baseRatingPresets,
-    manualStats: { entered: 0, reentries: 0, out: 0 },
+    manualStats: {
+      entered: Math.max(0, Number((activeState.onetableManualStats as Record<string, unknown> | undefined)?.entered ?? 0) || 0),
+      reentries: Math.max(0, Number((activeState.onetableManualStats as Record<string, unknown> | undefined)?.reentries ?? 0) || 0),
+      out: Math.max(0, Number((activeState.onetableManualStats as Record<string, unknown> | undefined)?.out ?? 0) || 0),
+    },
     config,
     display: {
       ...defaultDisplay,

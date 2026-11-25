@@ -1,9 +1,13 @@
+import { randomInt } from 'node:crypto';
 import type { Command } from '../shared/model.ts';
 import { formats, playingLevel, type Config, type Level } from '../shared/operations.ts';
+import { planSeating } from './seating.ts';
 import { DomainError, field, integer, scheduledDate, validateConfig, validateStructure } from './validation.ts';
 
 type Json = Record<string, unknown>;
-type Player = Json & { player_id?: number; name?: string; present?: boolean; status?: string; reentries?: number; bustOrder?: number | null };
+type DoyleSeat = { name: string; playerId: string | number | null };
+type DoyleTable = Json & { name?: string; seats: DoyleSeat[]; dealer?: DoyleSeat };
+type Player = Json & { player_id?: number; name?: string; present?: boolean; status?: string; reentries?: number; bustOrder?: number | null; place?: number | null; seatConfirmed?: boolean; payments?: Json[] };
 type DoyleState = Json & {
   tournament?: Json; timer?: Json; structure?: Json; stats?: Json; seating?: Json;
   info?: Json; players?: Player[];
@@ -45,13 +49,79 @@ function updateStats(state: DoyleState, players: Player[]) {
     busted: out.length, reentries: present.reduce((sum, player) => sum + (Number(player.reentries) || 0), 0) };
 }
 
+function emptySeat(): DoyleSeat {
+  return { name: '', playerId: null };
+}
+
+function defaultTableConfig(slots: number | null) {
+  const limit = Math.max(0, Number(slots) || 0);
+  const count = Math.min(20, Math.max(3, Math.ceil(limit / 10)));
+  const capacity = Math.min(10, Math.max(8, Math.ceil((limit || count * 9) / count)));
+  return { count, capacity };
+}
+
+function makeTable(index: number, capacity: number, existing?: Json): DoyleTable {
+  const prevSeats = Array.isArray(existing?.seats) ? existing.seats as Json[] : [];
+  const seats: DoyleSeat[] = Array.from({ length: capacity }, (_, si) => {
+    const cur = prevSeats[si];
+    if (cur && typeof cur === 'object' && cur.playerId != null) {
+      return { name: String(cur.name || ''), playerId: cur.playerId as string | number };
+    }
+    return emptySeat();
+  });
+  const dealer = existing?.dealer && typeof existing.dealer === 'object'
+    ? existing.dealer as DoyleSeat
+    : emptySeat();
+  return {
+    ...(existing && typeof existing === 'object' ? existing : {}),
+    name: typeof existing?.name === 'string' && existing.name ? existing.name : `Стол ${index + 1}`,
+    seats,
+    dealer,
+  };
+}
+
+function ensureSeatingTables(state: DoyleState): DoyleTable[] {
+  const seating = (state.seating ??= {}) as Json;
+  if (!Array.isArray(seating.tables)) seating.tables = [];
+  return seating.tables as DoyleTable[];
+}
+
+function findPlayerSeat(tables: DoyleTable[], id: string, name?: string): { tableNo: number; seatNo: number } | null {
+  for (let ti = 0; ti < tables.length; ti++) {
+    const seats = Array.isArray(tables[ti]?.seats) ? tables[ti].seats : [];
+    for (let si = 0; si < seats.length; si++) {
+      const seat = seats[si];
+      if (!seat || typeof seat !== 'object') continue;
+      if (seat.playerId != null ? String(seat.playerId) === id : Boolean(name && seat.name === name)) {
+        return { tableNo: ti + 1, seatNo: si + 1 };
+      }
+    }
+  }
+  return null;
+}
+
+function allSeatsOf(tables: DoyleTable[]) {
+  const seats: { tableNo: number; seatNo: number }[] = [];
+  const occupied: { tableNo: number; seatNo: number; playerId: string }[] = [];
+  tables.forEach((table, ti) => {
+    const list = Array.isArray(table?.seats) ? table.seats : [];
+    list.forEach((seat, si) => {
+      seats.push({ tableNo: ti + 1, seatNo: si + 1 });
+      if (seat && typeof seat === 'object' && seat.playerId != null) {
+        occupied.push({ tableNo: ti + 1, seatNo: si + 1, playerId: String(seat.playerId) });
+      }
+    });
+  });
+  return { seats, occupied };
+}
+
 function releaseSeat(state: DoyleState, id: string, name?: string) {
   if (!Array.isArray(state.seating?.tables)) return;
   for (const table of state.seating.tables as Json[]) {
     const matches = (seat: unknown) => seat && typeof seat === 'object' &&
       ((seat as Json).playerId != null ? String((seat as Json).playerId) === id : Boolean(name && (seat as Json).name === name));
-    if (Array.isArray(table.seats)) table.seats = table.seats.map(seat => matches(seat) ? { name: '', playerId: null } : seat);
-    if (matches(table.dealer)) table.dealer = { name: '', playerId: null };
+    if (Array.isArray(table.seats)) table.seats = table.seats.map(seat => matches(seat) ? emptySeat() : seat);
+    if (matches(table.dealer)) table.dealer = emptySeat();
   }
 }
 
@@ -102,16 +172,25 @@ const journalLabels: Partial<Record<Command['type'], string>> = {
   adjustReentry: 'Изменено число реэнтри', bust: 'Вылет игрока', undoBust: 'Отмена вылета',
   knockouts: 'Изменено число нокаутов', addon: 'Отметка аддона', saveConfig: 'Настройки турнира',
   updateTournament: 'Изменены параметры турнира', saveStructure: 'Изменена структура',
-  publishTournament: 'Турнир опубликован', start: 'Турнир открыт', nextLevel: 'Следующий уровень',
-  toggleClock: 'Изменено состояние таймера', clockControl: 'Настроен таймер',
-  setSeatingEnabled: 'Настроена рассадка', displayMode: 'Изменён режим дисплея', toggleFinalTable: 'Режим финального стола',
+  publishTournament: 'Турнир опубликован', start: 'Турнир открыт', finish: 'Турнир завершён',
+  nextLevel: 'Следующий уровень', toggleClock: 'Изменено состояние таймера', clockControl: 'Настроен таймер',
+  setSeatingEnabled: 'Настроена рассадка', configureTables: 'Настроены столы',
+  assign: 'Назначено место за столом', vacate: 'Место освобождено', swapSeats: 'Игроки поменялись местами',
+  confirmSeat: 'Подтверждена посадка', autoSeat: 'Выполнена авторассадка',
+  clearSeating: 'Рассадка очищена', shuffleSeating: 'Случайная рассадка', balanceSeating: 'Балансировка столов',
+  setFinishPlace: 'Исправлено итоговое место', swapOutcome: 'Обмен итоговых мест',
+  setManualStats: 'Обновлены ручные счётчики',
+  settleBalance: 'Принята оплата', payment: 'Принята оплата', clearPayments: 'Оплаты игрока очищены',
+  displayMode: 'Изменён режим дисплея', toggleFinalTable: 'Режим финального стола',
   unregister: 'Запись игрока отменена', importNames: 'Добавлены игроки из списка',
   setTariff: 'Изменён тариф игрока', compEntry: 'Изменена льгота на вход', compAddon: 'Изменена льгота на аддон',
 };
 
 export function planDoyleCommand(game: DoyleGame, room: DoyleRoom | undefined, action: Command, actor: string, now = Date.now()) {
-  if (game.status === 'past') throw new DomainError('Турнир завершён');
-  if (game.status === 'draft' && !['saveConfig', 'updateTournament', 'saveStructure', 'publishTournament'].includes(action.type)) {
+  if (game.status === 'past' && !['setFinishPlace', 'swapOutcome', 'knockouts'].includes(action.type)) {
+    throw new DomainError('Турнир завершён');
+  }
+  if (game.status === 'draft' && !['saveConfig', 'updateTournament', 'saveStructure', 'publishTournament', 'configureTables', 'setSeatingEnabled'].includes(action.type)) {
     throw new DomainError('Сначала опубликуйте турнир');
   }
   const date = new Date(now).toISOString();
@@ -134,7 +213,17 @@ export function planDoyleCommand(game: DoyleGame, room: DoyleRoom | undefined, a
     state.onetableConfig = { addon2Cost: config.addon2Cost, addon2Chips: config.addon2Chips,
       addon3Cost: config.addon3Cost, addon3Chips: config.addon3Chips, ratingGuarantee: config.ratingGuarantee,
       manualBreakMinutes: config.manualBreakMinutes, autoAdvance: config.autoAdvance, rating: config.rating };
-    state.seating = { ...state.seating, isActive: config.seating };
+    const existingTables = ensureSeatingTables(state);
+    if (config.seating && !existingTables.length) {
+      const defaults = defaultTableConfig(config.registrationLimit || game.slots);
+      state.seating = {
+        ...state.seating,
+        isActive: true,
+        tables: Array.from({ length: defaults.count }, (_, idx) => makeTable(idx, defaults.capacity)),
+      };
+    } else {
+      state.seating = { ...state.seating, isActive: config.seating };
+    }
     Object.assign(patch, { slots: config.registrationLimit, entry_fee: config.buyIn, stack: config.startStack, format: config.format });
   };
   const setLevels = (next: Level[], ante?: boolean) => {
@@ -165,10 +254,271 @@ export function planDoyleCommand(game: DoyleGame, room: DoyleRoom | undefined, a
     case 'saveStructure':
       setLevels(validateStructure(action.structure), action.anteEnabled);
       break;
-    case 'setSeatingEnabled':
+    case 'setSeatingEnabled': {
       if (typeof action.enabled !== 'boolean') throw new DomainError('Проверьте настройку рассадки', 400);
-      state.seating = { ...state.seating, isActive: action.enabled };
+      const currentTables = ensureSeatingTables(state);
+      if (action.enabled && !currentTables.length) {
+        const defaults = defaultTableConfig(game.slots);
+        state.seating = {
+          ...state.seating,
+          isActive: true,
+          tables: Array.from({ length: defaults.count }, (_, idx) => makeTable(idx, defaults.capacity)),
+        };
+      } else {
+        state.seating = { ...state.seating, isActive: action.enabled };
+      }
       break;
+    }
+    case 'configureTables': {
+      const count = integer(action.count, 1, 20, 'Укажите от 1 до 20 столов');
+      const capacity = integer(action.capacity, 2, 10, 'Укажите от 2 до 10 мест');
+      const existing = ensureSeatingTables(state);
+      const { occupied } = allSeatsOf(existing);
+      if (occupied.some(seat => seat.tableNo > count || seat.seatNo > capacity)) {
+        throw new DomainError('Пересадите игроков с мест, которые нужно убрать');
+      }
+      state.seating = {
+        ...state.seating,
+        isActive: true,
+        tables: Array.from({ length: count }, (_, idx) => makeTable(idx, capacity, existing[idx])),
+      };
+      break;
+    }
+    case 'assign': {
+      const id = field(action.playerId, 160, true);
+      const playerIdx = players.findIndex((item, index) => playerKey(item, index) === id);
+      const player = playerIdx >= 0 ? players[playerIdx] : undefined;
+      if (!player || !player.present || player.status === 'busted') {
+        throw new DomainError('Посадить можно только активного пришедшего игрока');
+      }
+      const tables = ensureSeatingTables(state);
+      if (!tables.length) throw new DomainError('Сначала настройте столы');
+      const tableNo = integer(action.tableNo, 1, tables.length, 'Стол не найден');
+      const table = tables[tableNo - 1];
+      const seats = Array.isArray(table.seats) ? table.seats : [];
+      const seatNo = integer(action.seatNo, 1, seats.length, 'Место не найдено');
+      const target = seats[seatNo - 1];
+      if (target && target.playerId != null && String(target.playerId) !== id) {
+        throw new DomainError('Это место уже занято');
+      }
+      releaseSeat(state, id, player.name);
+      seats[seatNo - 1] = { name: String(player.name || 'Игрок'), playerId: player.player_id ?? id };
+      break;
+    }
+    case 'vacate': {
+      const id = field(action.playerId, 160, true);
+      const player = players.find((item, index) => playerKey(item, index) === id);
+      if (!player) throw new DomainError('Игрок не найден', 404);
+      releaseSeat(state, id, player.name);
+      player.seatConfirmed = false;
+      break;
+    }
+    case 'confirmSeat': {
+      const id = field(action.playerId, 160, true);
+      const player = players.find((item, index) => playerKey(item, index) === id);
+      if (!player || !player.present) throw new DomainError('Игрок не найден', 404);
+      player.seatConfirmed = true;
+      break;
+    }
+    case 'swapSeats': {
+      const id = field(action.playerId, 160, true);
+      const otherId = field(action.withPlayerId, 160, true);
+      if (id === otherId) throw new DomainError('Выберите двух разных игроков');
+      const tables = ensureSeatingTables(state);
+      const firstPlayer = players.find((item, index) => playerKey(item, index) === id);
+      const secondPlayer = players.find((item, index) => playerKey(item, index) === otherId);
+      const firstSeat = findPlayerSeat(tables, id, firstPlayer?.name);
+      const secondSeat = findPlayerSeat(tables, otherId, secondPlayer?.name);
+      if (!firstSeat || !secondSeat) throw new DomainError('Оба игрока должны занимать места');
+      const a = tables[firstSeat.tableNo - 1].seats[firstSeat.seatNo - 1];
+      const b = tables[secondSeat.tableNo - 1].seats[secondSeat.seatNo - 1];
+      tables[firstSeat.tableNo - 1].seats[firstSeat.seatNo - 1] = b;
+      tables[secondSeat.tableNo - 1].seats[secondSeat.seatNo - 1] = a;
+      break;
+    }
+    case 'autoSeat':
+    case 'clearSeating':
+    case 'shuffleSeating':
+    case 'balanceSeating': {
+      const tables = ensureSeatingTables(state);
+      if (!tables.length) throw new DomainError('Сначала настройте столы');
+      const activeList = players
+        .map((p, index) => ({ player: p, id: playerKey(p, index) }))
+        .filter(({ player }) => player.present && player.status !== 'busted');
+      const byId = new Map(activeList.map(item => [item.id, item.player]));
+      const placeOnSeat = (playerId: string, tableNo: number, seatNo: number) => {
+        const p = byId.get(playerId);
+        if (!p) return;
+        tables[tableNo - 1].seats[seatNo - 1] = { name: String(p.name || 'Игрок'), playerId: p.player_id ?? playerId };
+      };
+      const clearAllSeats = () => {
+        for (const table of tables) {
+          if (Array.isArray(table.seats)) table.seats = table.seats.map(() => emptySeat());
+        }
+      };
+      if (action.type === 'clearSeating') {
+        clearAllSeats();
+        break;
+      }
+      const { seats, occupied } = allSeatsOf(tables);
+      if (!activeList.length) throw new DomainError('Нет пришедших игроков для рассадки');
+      if (action.type === 'autoSeat') {
+        const seatedIds = new Set(occupied.map(item => item.playerId));
+        const waiting = activeList.filter(item => !seatedIds.has(item.id)).map(item => item.id);
+        if (!waiting.length) throw new DomainError('Все пришедшие игроки уже рассажены');
+        const plan = planSeating(seats, occupied, waiting);
+        if (!plan.length) throw new DomainError('Нет свободных мест за столами');
+        for (const item of plan) placeOnSeat(item.playerId, item.tableNo, item.seatNo);
+        break;
+      }
+      if (activeList.length > seats.length) {
+        throw new DomainError('Для рассадки нужно достаточно мест и хотя бы один пришедший игрок');
+      }
+      if (action.type === 'shuffleSeating') {
+        clearAllSeats();
+        const shuffled = [...activeList];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = randomInt(i + 1);
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        const plan = planSeating(seats, [], shuffled.map(item => item.id));
+        for (const item of plan) placeOnSeat(item.playerId, item.tableNo, item.seatNo);
+        break;
+      }
+      // balanceSeating
+      const target = new Map<number, number>();
+      for (const item of planSeating(seats, [], activeList.map(entry => entry.id))) {
+        target.set(item.tableNo, (target.get(item.tableNo) ?? 0) + 1);
+      }
+      const kept: { tableNo: number; seatNo: number }[] = [];
+      const moving: { id: string; seat: { tableNo: number; seatNo: number } | null }[] = [];
+      const withSeats = activeList
+        .map(item => ({ id: item.id, seat: findPlayerSeat(tables, item.id, item.player.name) }))
+        .sort((a, b) => (a.seat?.seatNo ?? 99) - (b.seat?.seatNo ?? 99));
+      for (const entry of withSeats) {
+        if (entry.seat && (target.get(entry.seat.tableNo) ?? 0) > 0) {
+          kept.push(entry.seat);
+          target.set(entry.seat.tableNo, target.get(entry.seat.tableNo)! - 1);
+        } else {
+          moving.push(entry);
+        }
+      }
+      if (!moving.length) throw new DomainError('Столы уже сбалансированы');
+      for (const entry of moving) {
+        if (entry.seat) tables[entry.seat.tableNo - 1].seats[entry.seat.seatNo - 1] = emptySeat();
+      }
+      for (const item of planSeating(seats, kept, moving.map(entry => entry.id))) {
+        placeOnSeat(item.playerId, item.tableNo, item.seatNo);
+      }
+      break;
+    }
+    case 'finish': {
+      timer.isRunning = false;
+      timer.isPaused = false;
+      timer.levelEndAt = null;
+      timer.breakUntil = null;
+      patch.status = 'past';
+      const active = players.filter(p => p.present && p.status !== 'busted');
+      if (active.length === 1) active[0].place = 1;
+      updateStats(state, players);
+      break;
+    }
+    case 'setFinishPlace': {
+      const id = field(action.playerId, 160, true);
+      const targetPlayer = players.find((item, index) => playerKey(item, index) === id);
+      if (!targetPlayer || !targetPlayer.present || targetPlayer.status !== 'busted') {
+        throw new DomainError('Изменить место можно только у выбывшего игрока');
+      }
+      const activeCount = players.filter(p => p.present && p.status !== 'busted').length;
+      const out = players
+        .filter(p => p.present && p.status === 'busted')
+        .sort((a, b) => (Number(a.place) || 9999) - (Number(b.place) || 9999) || (b.bustOrder ?? 0) - (a.bustOrder ?? 0));
+      const place = integer(action.place, activeCount + 1, activeCount + out.length, 'Укажите место среди выбывших игроков');
+      const next = out.filter(p => p !== targetPlayer);
+      next.splice(place - activeCount - 1, 0, targetPlayer);
+      // В updateStats bustOrder=1 — самый первый вылетевший (последнее место), bustOrder=out.length — последний вылетевший (наивысшее место)
+      next.forEach((p, idx) => {
+        p.place = activeCount + idx + 1;
+        p.bustOrder = next.length - idx;
+      });
+      updateStats(state, players);
+      break;
+    }
+    case 'swapOutcome': {
+      const id = field(action.playerId, 160, true);
+      const otherId = field(action.withPlayerId, 160, true);
+      const first = players.find((item, index) => playerKey(item, index) === id);
+      const second = players.find((item, index) => playerKey(item, index) === otherId);
+      if (!first || !second || id === otherId || !first.present || !second.present) {
+        throw new DomainError('Выберите другого пришедшего игрока');
+      }
+      const firstOut = first.status === 'busted';
+      const secondOut = second.status === 'busted';
+      if (!firstOut && !secondOut) throw new DomainError('Хотя бы один из игроков должен быть вылетевшим');
+      if (firstOut && secondOut) {
+        const tmpOrder = first.bustOrder ?? null;
+        const tmpPlace = first.place ?? null;
+        first.bustOrder = second.bustOrder ?? null;
+        first.place = second.place ?? null;
+        second.bustOrder = tmpOrder;
+        second.place = tmpPlace;
+      } else {
+        const activeP = firstOut ? second : first;
+        const activeId = firstOut ? otherId : id;
+        const outP = firstOut ? first : second;
+        const outId = firstOut ? id : otherId;
+        const tables = ensureSeatingTables(state);
+        const seat = findPlayerSeat(tables, activeId, activeP.name);
+        activeP.status = 'busted';
+        activeP.bustOrder = outP.bustOrder ?? 1;
+        activeP.place = outP.place ?? null;
+        outP.status = 'playing';
+        outP.busted = false;
+        outP.bustOrder = null;
+        outP.place = null;
+        if (seat) {
+          tables[seat.tableNo - 1].seats[seat.seatNo - 1] = { name: String(outP.name || 'Игрок'), playerId: outP.player_id ?? outId };
+        }
+      }
+      updateStats(state, players);
+      break;
+    }
+    case 'setManualStats': {
+      const stats = action.stats;
+      state.onetableManualStats = {
+        entered: integer(stats.entered, 0, 5000),
+        reentries: integer(stats.reentries, 0, 5000),
+        out: integer(stats.out, 0, 5000),
+      };
+      break;
+    }
+    case 'settleBalance':
+    case 'payment': {
+      const id = field(action.playerId, 160, true);
+      const player = players.find((item, index) => playerKey(item, index) === id);
+      if (!player) throw new DomainError('Игрок не записан на этот турнир', 404);
+      const method = action.method ?? 'cash';
+      if (!['cash', 'card', 'transfer'].includes(method)) throw new DomainError('Укажите способ оплаты', 400);
+      const amount = action.type === 'payment'
+        ? integer(action.amount, 1, 10_000_000, 'Укажите сумму оплаты')
+        : integer(action.amount ?? action.expectedDue, 1, 10_000_000, 'Укажите сумму оплаты');
+      const list = Array.isArray(player.payments) ? player.payments : [];
+      list.push({ id: now, amount, method, ts: now, by: actor });
+      player.payments = list;
+      break;
+    }
+    case 'clearPayments': {
+      const id = field(action.playerId, 160, true);
+      const player = players.find((item, index) => playerKey(item, index) === id);
+      if (!player) throw new DomainError('Игрок не записан на этот турнир', 404);
+      player.payments = [];
+      if (action.resetTerms) {
+        player.buyIn = null;
+        player.freeEntries = 0;
+        player.addonFree = false;
+      }
+      break;
+    }
     case 'publishTournament':
       if (game.status !== 'draft' || !game.date) throw new DomainError('Укажите дату черновика');
       patch.status = 'open';

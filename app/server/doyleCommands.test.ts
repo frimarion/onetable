@@ -35,6 +35,61 @@ test('Doyle: приход, R+, вылет и реэнтри обновляют �
   assert.equal(reentry.state.stats?.alive, 1);
 });
 
+test('Doyle: столы, рассадка, авто/случайная/балансировка, оплаты и финализация', () => {
+  const multiGame: DoyleGame = {
+    ...fixture,
+    registrations: [
+      { player_id: 50, attendance: 'present', doyle_players: { name: 'Игрок 1' } },
+      { player_id: 51, attendance: 'present', doyle_players: { name: 'Игрок 2' } },
+      { player_id: 52, attendance: 'present', doyle_players: { name: 'Игрок 3' } },
+    ],
+  };
+  const run = (room: DoyleRoom | undefined, action: Parameters<typeof planDoyleCommand>[2]) =>
+    planDoyleCommand(multiGame, room, action, 'test@example.com', now);
+
+  // Включение рассадки создаёт дефолтные столы
+  const enabled = run(undefined, { type: 'setSeatingEnabled', enabled: true });
+  assert.ok(enabled.state);
+  assert.equal((enabled.state.seating as { isActive: boolean }).isActive, true);
+  assert.ok(((enabled.state.seating as { tables: unknown[] }).tables).length >= 3);
+
+  // Настройка 3 столов по 8 мест
+  const configured = run({ version: 1, state: enabled.state }, { type: 'configureTables', count: 3, capacity: 8 });
+  assert.ok(configured.state);
+  const tables = (configured.state.seating as { tables: { seats: { playerId: unknown }[] }[] }).tables;
+  assert.equal(tables.length, 3);
+  assert.equal(tables[0].seats.length, 8);
+
+  // Авторассадка 3 игроков по 3 столам (по 1 на стол)
+  const auto = run({ version: 2, state: configured.state }, { type: 'autoSeat' });
+  assert.ok(auto.state);
+  const seatedTables = (auto.state.seating as { tables: { seats: { playerId: unknown }[] }[] }).tables;
+  const occupiedCount = seatedTables.flatMap(t => t.seats).filter(s => s.playerId != null).length;
+  assert.equal(occupiedCount, 3);
+
+  // Обмен местами и снятие с места
+  const swapped = run({ version: 3, state: auto.state }, { type: 'swapSeats', playerId: '50', withPlayerId: '51' });
+  assert.ok(swapped.state);
+  const vacated = run({ version: 4, state: swapped.state }, { type: 'vacate', playerId: '52' });
+  assert.ok(vacated.state);
+  const afterVacate = (vacated.state.seating as { tables: { seats: { playerId: unknown }[] }[] }).tables;
+  assert.equal(afterVacate.flatMap(t => t.seats).filter(s => s.playerId != null).length, 2);
+
+  // Нельзя уменьшить столы, если на убираемом столе сидит игрок
+  assert.throws(() => run({ version: 5, state: vacated.state }, { type: 'configureTables', count: 1, capacity: 8 }));
+
+  // Оплата и очистка оплат
+  const paid = run({ version: 5, state: vacated.state }, { type: 'settleBalance', playerId: '50', method: 'card', expectedDue: 1000 });
+  assert.ok(paid.state);
+  assert.equal((paid.state.players?.[0].payments as { amount: number }[])[0].amount, 1000);
+  const cleared = run({ version: 6, state: paid.state }, { type: 'clearPayments', playerId: '50', paymentIds: [] });
+  assert.equal((cleared.state?.players?.[0].payments as unknown[]).length, 0);
+
+  // Финализация турнира
+  const finished = run({ version: 7, state: cleared.state }, { type: 'finish' });
+  assert.equal(finished.patch.status, 'past');
+});
+
 test('Doyle: SQL защищает версию комнаты, идемпотентность и доступ', async () => {
   const db = new PGlite();
   try {
