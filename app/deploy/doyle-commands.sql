@@ -41,9 +41,20 @@ BEGIN
   END IF;
 
   IF p_attendance IS NOT NULL THEN
-    UPDATE public.doyle_registrations SET attendance = p_attendance->>'status'
-      WHERE tournament_id = game.id AND player_id = (p_attendance->>'id')::bigint;
-    IF NOT FOUND AND p_state IS NULL THEN RETURN 'missing_player'; END IF;
+    IF p_attendance->>'status' = 'register' THEN
+      INSERT INTO public.doyle_registrations(tournament_id, player_id, source, attendance)
+        SELECT game.id, id, 'manual', 'registered' FROM public.doyle_players WHERE id = (p_attendance->>'id')::bigint
+        ON CONFLICT (tournament_id, player_id) DO NOTHING;
+      IF NOT FOUND THEN RETURN 'missing_player'; END IF;
+    ELSIF p_attendance->>'status' = 'unregister' THEN
+      DELETE FROM public.doyle_registrations
+        WHERE tournament_id = game.id AND player_id = (p_attendance->>'id')::bigint AND attendance <> 'present';
+      IF NOT FOUND THEN RETURN 'missing_player'; END IF;
+    ELSE
+      UPDATE public.doyle_registrations SET attendance = p_attendance->>'status'
+        WHERE tournament_id = game.id AND player_id = (p_attendance->>'id')::bigint;
+      IF NOT FOUND AND p_state IS NULL THEN RETURN 'missing_player'; END IF;
+    END IF;
   END IF;
 
   IF p_state IS NOT NULL AND game.room_id IS NOT NULL THEN

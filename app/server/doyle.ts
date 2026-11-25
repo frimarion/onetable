@@ -55,7 +55,7 @@ export async function writeDoyleCommand(ctx: AuthContext, id: string, requestId:
     if (!game) throw new DomainError('Турнир не найден', 404);
     const [room, registrations] = await Promise.all([
       game.room_id ? doyleRest<DoyleRoom[]>('rooms?select=state,version&room_id=eq.' + encodeURIComponent(game.room_id)) : [],
-      !game.room_id || command.type === 'checkIn' || command.type === 'checkOut'
+      !game.room_id || ['checkIn', 'checkOut', 'register', 'unregister'].includes(command.type)
         ? doyleRest<DoyleGame['registrations']>('doyle_registrations?select=player_id,attendance,doyle_players(name)&tournament_id=eq.' + id + '&order=id') : [],
     ]);
     if (game.room_id && !room[0]) throw new DomainError('Комната этого турнира недоступна', 409);

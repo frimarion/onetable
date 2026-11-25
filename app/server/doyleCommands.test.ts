@@ -16,14 +16,18 @@ test('Doyle: приход, R+, вылет и реэнтри обновляют �
     planDoyleCommand(fixture, room, action, 'test@example.com', now);
   const checkedIn = run(undefined, { type: 'checkIn', playerId: '50' });
   assert.deepEqual(checkedIn.attendance, { id: '50', status: 'present' });
+  assert.ok(checkedIn.state);
   assert.equal(checkedIn.state.players?.[0].present, true);
   const room = { version: 4, state: { ...checkedIn.state, legacyField: 'keep' } };
   const plus = run(room, { type: 'adjustReentry', playerId: '50', delta: 1, expectedReentries: 0 });
+  assert.ok(plus.state);
   assert.equal(plus.state.players?.[0].reentries, 1);
   assert.throws(() => run({ version: 5, state: plus.state }, { type: 'adjustReentry', playerId: '50', delta: 1, expectedReentries: 0 }));
   const bust = run({ version: 5, state: plus.state }, { type: 'bust', playerId: '50', knockouts: 2 });
+  assert.ok(bust.state);
   assert.equal(bust.state.players?.[0].status, 'busted');
   const reentry = run({ version: 6, state: bust.state }, { type: 'reenter', playerId: '50' });
+  assert.ok(reentry.state);
   assert.equal(reentry.state.players?.[0].status, 'playing');
   assert.equal(reentry.state.players?.[0].reentries, 2);
   assert.equal(reentry.state.players?.[0].ko, 2);
@@ -41,9 +45,12 @@ test('Doyle: SQL защищает версию комнаты, идемпоте�
       CREATE TABLE rooms (room_id text PRIMARY KEY, state jsonb, branch text, display_token text, version bigint DEFAULT 0);
       CREATE TABLE doyle_tournaments (id bigint PRIMARY KEY, name text, status text, room_id text REFERENCES rooms,
         city text, date timestamptz, slots int, entry_fee int, stack int, format text);
-      CREATE TABLE doyle_registrations (tournament_id bigint, player_id bigint, attendance text);
+      CREATE TABLE doyle_players (id bigint PRIMARY KEY);
+      CREATE TABLE doyle_registrations (tournament_id bigint, player_id bigint, attendance text, source text,
+        UNIQUE(tournament_id,player_id));
       INSERT INTO doyle_tournaments VALUES (12,'Тест','open',NULL,'MSK',NULL,45,1000,30000,'Deepstack');
-      INSERT INTO doyle_registrations VALUES (12,50,'registered');
+      INSERT INTO doyle_players VALUES (50), (51);
+      INSERT INTO doyle_registrations VALUES (12,50,'registered','manual');
     `);
     await db.exec(await readFile(new URL('../deploy/doyle-commands.sql', import.meta.url), 'utf8'));
     const sql = 'SELECT onetable_save_doyle_command(12,$1,$2,$3,$4,$5,$6,$7,$8,$9) AS status';
@@ -57,8 +64,13 @@ test('Doyle: SQL защищает версию комнаты, идемпоте�
     const conflict = [{ room_id: 'AB1234', status: 'open' }, 1, {}, {}, null, 'request2', 'config', null, null];
     assert.equal(await execute(...conflict), 'conflict');
     assert.equal(await execute(...conflict.map((part, index) => index === 1 ? 0 : part)), 'saved');
+    const registration = [{ room_id: 'AB1234' }, 0, null, {}, { id: '51', status: 'register' }, 'request3', 'register', null, null];
+    assert.equal(await execute(...registration), 'saved');
+    const cancellation = [{ room_id: 'AB1234' }, 0, null, {}, { id: '51', status: 'unregister' }, 'request4', 'unregister', null, null];
+    assert.equal(await execute(...cancellation), 'saved');
     await db.exec('RESET ROLE');
     assert.equal((await db.query<{ attendance: string }>('SELECT attendance FROM doyle_registrations')).rows[0].attendance, 'present');
+    assert.equal((await db.query('SELECT * FROM doyle_registrations')).rows.length, 1);
     assert.equal((await db.query('SELECT * FROM rooms')).rows.length, 1);
   } finally {
     await db.close();

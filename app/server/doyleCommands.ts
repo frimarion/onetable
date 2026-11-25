@@ -105,6 +105,8 @@ const journalLabels: Partial<Record<Command['type'], string>> = {
   publishTournament: 'Турнир опубликован', start: 'Турнир открыт', nextLevel: 'Следующий уровень',
   toggleClock: 'Изменено состояние таймера', clockControl: 'Настроен таймер',
   setSeatingEnabled: 'Настроена рассадка', displayMode: 'Изменён режим дисплея', toggleFinalTable: 'Режим финального стола',
+  unregister: 'Запись игрока отменена', importNames: 'Добавлены игроки из списка',
+  setTariff: 'Изменён тариф игрока', compEntry: 'Изменена льгота на вход', compAddon: 'Изменена льгота на аддон',
 };
 
 export function planDoyleCommand(game: DoyleGame, room: DoyleRoom | undefined, action: Command, actor: string, now = Date.now()) {
@@ -122,6 +124,8 @@ export function planDoyleCommand(game: DoyleGame, room: DoyleRoom | undefined, a
   const levels = decodeLevels(structure.levels);
   structure.levels ??= encodeLevels(levels);
   const players = state.players ??= (room ? [] : game.registrations.map(registrationPlayer));
+  const playerKey = (player: Player, index: number) => player.player_id == null
+    ? `manual-${index}-${player.name || 'player'}` : String(player.player_id);
   const setConfig = (config: Config) => {
     Object.assign(tournament, { defaultBuyIn: config.buyIn, reentryFee: config.reentryFee,
       startStack: config.startStack, lateRegUntilLevel: config.lateRegistration, addonEnabled: config.addon,
@@ -178,6 +182,37 @@ export function planDoyleCommand(game: DoyleGame, room: DoyleRoom | undefined, a
       }
       editClock(timer, levels, action, now, Number((state.onetableConfig as Partial<Config> | undefined)?.manualBreakMinutes) || 15);
       break;
+    case 'register':
+    case 'unregister': {
+      const id = field(action.playerId, 160, true);
+      const index = players.findIndex((item, index) => playerKey(item, index) === id);
+      const registered = game.registrations.some(reg => String(reg.player_id) === id);
+      if (action.type === 'register') {
+        if (!/^[1-9]\d{0,14}$/.test(id)) throw new DomainError('Игрок не найден в CRM Doyle', 404);
+        if (index >= 0 || registered) throw new DomainError('Игрок уже записан');
+        const cutoff = Number(tournament.lateRegUntilLevel) || 0;
+        if (cutoff && playingLevel(levels, Number(timer.levelIndex) || 0) > cutoff) throw new DomainError('Поздняя регистрация закрыта');
+        return { state: null, patch, attendance: { id, status: 'register' }, message: 'Игрок записан' };
+      }
+      if (players[index]?.present) throw new DomainError('Сначала снимите отметку прихода');
+      if (registered) return { state: null, patch, attendance: { id, status: 'unregister' }, message: 'Запись отменена' };
+      if (index < 0) throw new DomainError('Игрок не записан на этот турнир', 404);
+      players.splice(index, 1);
+      break;
+    }
+    case 'importNames': {
+      if (!Array.isArray(action.names) || action.names.length < 1 || action.names.length > 500) throw new DomainError('Укажите список игроков', 400);
+      if (action.replace) throw new DomainError('Чтобы заменить список, сначала отмените лишние записи по одной');
+      const names = new Set(players.map(player => player.name?.trim().toLowerCase()));
+      for (const raw of action.names) {
+        const name = field(raw, 80, true);
+        const key = name.toLowerCase();
+        if (names.has(key)) continue;
+        names.add(key);
+        players.push({ name, present: false, status: 'registered', reentries: 0, ko: 0 });
+      }
+      break;
+    }
     case 'checkIn':
     case 'checkOut':
     case 'adjustReentry':
@@ -185,10 +220,13 @@ export function planDoyleCommand(game: DoyleGame, room: DoyleRoom | undefined, a
     case 'bust':
     case 'undoBust':
     case 'knockouts':
+    case 'setTariff':
+    case 'compEntry':
+    case 'compAddon':
     case 'addon': {
       const id = field(action.playerId, 160, true);
       const match = game.registrations.find(reg => String(reg.player_id) === id);
-      let player = players.find((item, index) => (item.player_id == null ? `manual-${index}-${item.name || 'player'}` : String(item.player_id)) === id);
+      let player = players.find((item, index) => playerKey(item, index) === id);
       if (!player && match && (action.type === 'checkIn' || action.type === 'checkOut')) {
         player = registrationPlayer(match);
         players.push(player);
@@ -241,6 +279,13 @@ export function planDoyleCommand(game: DoyleGame, room: DoyleRoom | undefined, a
           releaseSeat(state, id, player.name);
         } else if (action.type === 'knockouts') {
           player.ko = integer(action.value, 0, 500);
+        } else if (action.type === 'setTariff') {
+          if (![0, 50, 100].includes(action.rate)) throw new DomainError('Укажите тариф входа', 400);
+          player.buyIn = action.rate === 100 ? null : Math.round((Number(tournament.defaultBuyIn ?? game.entry_fee) || 0) * action.rate / 100);
+        } else if (action.type === 'compEntry' || action.type === 'compAddon') {
+          if (typeof action.enabled !== 'boolean') throw new DomainError('Укажите льготу', 400);
+          if (action.type === 'compEntry') player.freeEntries = action.enabled ? Math.max(1, Number(player.freeEntries) || 0) : 0;
+          else player.addonFree = action.enabled;
         } else if (action.type === 'addon') {
           const current = player.addon ? Number(player.addonTier) || 1 : 0;
           if (!tournament.addonEnabled || (action.expectedTier !== undefined && current !== action.expectedTier)) throw new DomainError('Аддон сейчас недоступен');
