@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { PGlite } from '@electric-sql/pglite';
 import { resolveSession, sha256, switchSessionClub } from './auth.ts';
+import { issueDoyleReadTicket, redeemDoyleReadTicket } from './doyleGateway.ts';
 import type { PgAdapter } from './pgAdapter.ts';
 import { workspaceClubId, workspacePath } from '../shared/workspace.ts';
 
@@ -10,6 +11,17 @@ test('Адрес кабинета однозначно задаёт клуб', (
   assert.equal(workspaceClubId('/clubs/white-felt/'), 'white-felt');
   assert.equal(workspaceClubId('/'), undefined);
   assert.equal(workspaceClubId('/doyle/tournaments.html'), undefined);
+});
+
+test('Пропуск для чтения Doyle одноразовый и действует 30 секунд', () => {
+  const session = 'fixture-session';
+  const ticket = issueDoyleReadTicket(session, 1000);
+  assert.notEqual(ticket, session);
+  assert.equal(redeemDoyleReadTicket(ticket, 1000), undefined);
+  assert.equal(redeemDoyleReadTicket(`Bearer ${ticket}`, 30_999), session);
+  assert.equal(redeemDoyleReadTicket(`Bearer ${ticket}`, 30_999), undefined);
+  const expired = issueDoyleReadTicket(session, 1000);
+  assert.equal(redeemDoyleReadTicket(`Bearer ${expired}`, 31_000), undefined);
 });
 
 test('Клуб из адреса сохраняет роли и изоляцию вкладок при смене клуба по умолчанию', async () => {
