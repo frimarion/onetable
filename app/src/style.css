@@ -716,7 +716,7 @@ button.result-person:not(:disabled):hover > svg { color: var(--accent); }
 .crm-pipeline-bar .search { flex: 1; min-width: 220px; }
 
 .crm-kanban { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(252px, 1fr); gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: start; }
-.crm-stage-col { display: grid; gap: 10px; min-height: 360px; padding: 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); border-top-width: 3px; transition: border-color .15s, background-color .15s; }
+.crm-stage-col { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; gap: 10px; min-width: 0; min-height: 360px; padding: 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); border-top-width: 3px; transition: border-color .15s, background-color .15s; }
 .crm-stage-col.tone-neutral { border-top-color: var(--muted); }
 .crm-stage-col.tone-info { border-top-color: #60a5fa; }
 .crm-stage-col.tone-accent { border-top-color: var(--accent); }
@@ -725,26 +725,29 @@ button.result-person:not(:disabled):hover > svg { color: var(--accent); }
 .crm-stage-col.tone-muted { border-top-color: var(--line); }
 .crm-stage-col.drop-over { background: var(--selected-bg); border-color: var(--selected-border); }
 
-.crm-stage-head { display: grid; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-.crm-stage-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.crm-stage-title strong { font-size: 13px; font-weight: 620; }
+.crm-stage-head { display: grid; gap: 4px; align-content: start; min-width: 0; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.crm-stage-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-width: 0; }
+.crm-stage-title strong { font-size: 13px; font-weight: 620; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-stage-title .count { flex-shrink: 0; }
 .crm-stage-sum { font-size: 12px; }
 
-.crm-stage-cards { display: grid; gap: 8px; align-content: start; }
-.crm-deal-card { display: grid; gap: 6px; padding: 11px 12px; border-radius: 10px; background: var(--ground); border: 1px solid var(--line); cursor: grab; transition: border-color .15s, background-color .15s, opacity .15s; }
+.crm-stage-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; align-content: start; min-width: 0; }
+.crm-deal-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0; padding: 11px 12px; border-radius: 10px; background: var(--ground); border: 1px solid var(--line); cursor: grab; transition: border-color .15s, background-color .15s, opacity .15s; }
 .crm-deal-card:hover { border-color: var(--selected-border); background: var(--raised); }
 .crm-deal-card.dragging { opacity: .45; cursor: grabbing; }
-.crm-deal-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.crm-deal-top strong { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.crm-deal-amount { font-size: 12px; font-weight: 620; white-space: nowrap; }
-.crm-deal-sub { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
-.crm-deal-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.crm-deal-tag { display: inline-block; padding: 2px 7px; border-radius: 5px; background: var(--raised); border: 1px solid var(--line); color: var(--muted); font-size: 11px; white-space: nowrap; }
-.crm-deal-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 11px; }
-.crm-deal-owner { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-deal-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
+.crm-deal-top strong { font-size: 13px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-deal-amount { font-size: 12px; font-weight: 620; white-space: nowrap; flex-shrink: 0; }
+.crm-deal-sub { display: flex; justify-content: space-between; gap: 8px; min-width: 0; font-size: 12px; }
+.crm-deal-sub > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-deal-sub > span:last-child { flex-shrink: 0; white-space: nowrap; }
+.crm-deal-tags { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.crm-deal-tag { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: 2px 7px; border-radius: 5px; background: var(--raised); border: 1px solid var(--line); color: var(--muted); font-size: 11px; white-space: nowrap; }
+.crm-deal-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; min-width: 0; padding-top: 6px; border-top: 1px solid var(--line); font-size: 11px; }
+.crm-deal-owner { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .crm-stage-empty { padding: 18px 8px; text-align: center; font-size: 12px; border: 1px dashed var(--line); border-radius: 8px; }
 
-.crm-task-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.crm-task-badge { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .crm-task-badge.overdue { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
 .crm-task-badge.today { background: color-mix(in srgb, var(--owing) 16%, transparent); color: var(--owing); }
 .crm-task-badge.upcoming, .crm-task-badge.done { background: var(--accent-soft); color: var(--accent); }
@@ -1103,10 +1106,12 @@ button.result-person:not(:disabled):hover > svg { color: var(--accent); }
   display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; flex-wrap: wrap;
 }
 .social-row + .social-row, .session-row + .session-row { border-top: 1px solid var(--line); }
-.social-row > div, .session-info { display: grid; gap: 2px; min-width: 0; }
+.social-row-main { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.social-row-main > div, .session-info { display: grid; gap: 2px; min-width: 0; }
 .social-row strong, .session-info strong { font-size: 13px; font-weight: 550; }
 .social-row-action { display: inline-flex; align-items: center; gap: 8px; flex: none; }
 .tg-widget-slot { display: inline-flex; align-items: center; min-height: 28px; }
+.oauth-icon { display: block; flex: none; }
 .auth-oauth { display: grid; gap: 12px; margin-top: 4px; }
 .auth-oauth-divider {
   display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px;
@@ -1115,7 +1120,13 @@ button.result-person:not(:disabled):hover > svg { color: var(--accent); }
   content: ''; flex: 1; height: 1px; background: var(--line);
 }
 .auth-oauth-buttons { display: grid; gap: 8px; }
-.oauth-btn { text-decoration: none; width: 100%; }
+.oauth-btn {
+  text-decoration: none; width: 100%;
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+}
+.oauth-vk:hover { border-color: rgba(0, 119, 255, 0.55); }
+.oauth-yandex:hover { border-color: rgba(252, 63, 29, 0.55); }
+.oauth-telegram:hover { border-color: rgba(42, 171, 238, 0.55); }
 .auth-tg-wrap { display: flex; justify-content: center; padding-top: 2px; }
 .session-row { justify-content: flex-start; }
 .session-row > svg { color: var(--muted); flex: none; }
