@@ -2,9 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MemberRole } from '../shared/access';
 import type { Command, CommandResult, Session, Snapshot } from '../shared/model';
 import type { DoyleRows } from '../shared/doyleQueries';
-import {
-  doyleSessionOf, doyleSignIn, loadDoyleSnapshot, loadSavedDoyleAuth, mapDoyleSnapshot, saveDoyleAuth, type DoyleAuth,
-} from './doyleAdapter';
+import { doyleSessionOf, mapDoyleSnapshot } from './doyleAdapter';
 
 export type ProdAuthState = {
   user: { id: string; email: string; name: string; isSuperadmin: boolean };
@@ -12,6 +10,7 @@ export type ProdAuthState = {
   session: Session;
   memberships: { club: Session['club']; role: MemberRole; tableNo: number | null }[];
   doyleAccess?: boolean;
+  doyleWorkspace?: boolean;
   defaultTournamentId?: string | null;
 };
 
@@ -28,10 +27,8 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
 }
 
 export function useOffice(doyleTvTournament?: string) {
-  const [doyleAuth, setDoyleAuth] = useState<DoyleAuth | null>(null);
   const [prodMode, setProdMode] = useState(false);
   const [prodAuth, setProdAuth] = useState<ProdAuthState | null>(null);
-  const [viewOneTable, setViewOneTable] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [token, setToken] = useState(() => new URLSearchParams(location.hash.slice(1)).get('session') || 'doyle-admin');
@@ -42,15 +39,11 @@ export function useOffice(doyleTvTournament?: string) {
   const [busy, setBusy] = useState(false);
   const pending = useRef<{ key: string; id: string } | undefined>(undefined);
   const inFlight = useRef(false);
-  const oneTableTournament = useRef('');
-  const doyleAuthRef = useRef<DoyleAuth | null>(doyleAuth);
-  doyleAuthRef.current = doyleAuth;
   const prodModeRef = useRef(prodMode);
   prodModeRef.current = prodMode;
 
-  const useLinkedDoyle = Boolean(prodAuth?.doyleAccess && !viewOneTable);
-  const isDoyleLive = useLinkedDoyle || Boolean(doyleAuth);
-  const doyleIdentity = useLinkedDoyle ? prodAuth?.user.id : doyleAuth?.email;
+  const isDoyleLive = Boolean(doyleTvTournament && prodAuth?.doyleAccess);
+  const doyleIdentity = isDoyleLive ? prodAuth?.user.id : undefined;
   const activeSession = doyleIdentity
     ? doyleSessionOf(doyleIdentity)
     : prodMode
@@ -76,10 +69,8 @@ export function useOffice(doyleTvTournament?: string) {
     const body = await resp.json() as ProdAuthState & { error?: string };
     if (!resp.ok) throw new Error(body.error || 'Ошибка авторизации');
     setProdAuth(body);
-    setViewOneTable(false);
     const defaultId = body.defaultTournamentId ?? '';
-    oneTableTournament.current = defaultId;
-    setId(body.doyleAccess ? doyleTvTournament || '' : defaultId);
+    setId(body.doyleAccess && doyleTvTournament ? doyleTvTournament : defaultId);
     setAuthChecked(true);
   }, [doyleTvTournament]);
 
@@ -93,7 +84,6 @@ export function useOffice(doyleTvTournament?: string) {
       const items = (await resp.json()) as Session[];
       if (!resp.ok) throw new Error('Сервер недоступен');
       setSessions(items);
-      setDoyleAuth(loadSavedDoyleAuth());
       setToken(current => items.some(item => item.token === current) ? current : 'doyle-admin');
       setAuthChecked(true);
     }).catch((reason: Error) => { setError(reason.message); setAuthChecked(true); });
@@ -101,24 +91,12 @@ export function useOffice(doyleTvTournament?: string) {
   useEffect(load, [load]);
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
-    if (useLinkedDoyle) {
+    if (isDoyleLive) {
       const rows = await request<DoyleRows>('/api/doyle/snapshot', { signal });
       const next = await mapDoyleSnapshot(id || null, async resource => rows[resource]);
       if (!signal?.aborted) {
         setSnapshot({ data: next, token: activeToken });
         setId(next.tournament.id);
-        setError('');
-      }
-      return;
-    }
-    const auth = doyleAuthRef.current;
-    if (auth) {
-      const { auth: fresh, snapshot: next } = await loadDoyleSnapshot(auth, id || null, signal);
-      if (!signal?.aborted) {
-        if (fresh.accessToken !== auth.accessToken) setDoyleAuth(fresh);
-        const liveToken = doyleSessionOf(fresh.email).token;
-        setSnapshot({ data: next, token: liveToken });
-        if (next.tournament.id && next.tournament.id !== id) setId(next.tournament.id);
         setError('');
       }
       return;
@@ -131,7 +109,7 @@ export function useOffice(doyleTvTournament?: string) {
         previous.data.serverTime > next.serverTime ? previous : { data: next, token: activeToken });
       setError('');
     }
-  }, [path, token, activeToken, id, useLinkedDoyle]);
+  }, [path, token, activeToken, id, isDoyleLive]);
 
   useEffect(() => {
     if (!activeRole) return;
@@ -302,43 +280,6 @@ export function useOffice(doyleTvTournament?: string) {
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  async function connectDoyle(email: string, password: string) {
-    if (prodMode || inFlight.current) return;
-    setBusy(true);
-    setError('');
-    try {
-      const auth = await doyleSignIn(email, password);
-      setDoyleAuth(auth);
-      setId('');
-      setSnapshot(undefined);
-      setNotice('Данные Doyle открыты в режиме просмотра');
-    } finally {
-      setBusy(false);
-    }
-  }
-  function disconnectDoyle() {
-    if (inFlight.current) return;
-    if (prodMode) {
-      setViewOneTable(true);
-    } else {
-      saveDoyleAuth(null);
-      setDoyleAuth(null);
-      setToken('doyle-admin');
-    }
-    setSnapshot(undefined);
-    setId(prodMode ? oneTableTournament.current : 'doyle-main');
-    setError('');
-    setNotice(prodMode ? 'Открыт кабинет OneTable' : 'Переключено на локальное демо');
-  }
-  function showLinkedDoyle() {
-    if (!prodAuth?.doyleAccess || inFlight.current) return;
-    oneTableTournament.current = id;
-    setSnapshot(undefined);
-    setId('');
-    setError('');
-    setNotice('');
-    setViewOneTable(false);
-  }
   async function prodLogin(email: string, password: string) {
     setBusy(true);
     setError('');
@@ -371,8 +312,6 @@ export function useOffice(doyleTvTournament?: string) {
   async function prodLogout() {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
     setProdAuth(null);
-    setDoyleAuth(null);
-    setViewOneTable(false);
     setSnapshot(undefined);
     setNotice('');
   }
@@ -401,7 +340,6 @@ export function useOffice(doyleTvTournament?: string) {
       pending.current = undefined;
       setNotice(response.message);
       if (response.tournamentId) {
-        if (prodMode) oneTableTournament.current = response.tournamentId;
         setId(response.tournamentId);
         setError('');
       }
@@ -427,11 +365,7 @@ export function useOffice(doyleTvTournament?: string) {
     external,
     run,
     exportPayments,
-    doyleAuth,
     isDoyleLive,
-    connectDoyle,
-    disconnectDoyle,
-    showLinkedDoyle,
     prodMode,
     prodAuth,
     authChecked,
