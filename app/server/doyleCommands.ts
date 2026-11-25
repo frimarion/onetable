@@ -302,7 +302,7 @@ export function planDoyleCommand(game: DoyleGame, room: DoyleRoom | undefined, a
         throw new DomainError('Это место уже занято');
       }
       releaseSeat(state, id, player.name);
-      seats[seatNo - 1] = { name: String(player.name || 'Игрок'), playerId: player.player_id ?? id };
+      table.seats[seatNo - 1] = { name: String(player.name || 'Игрок'), playerId: player.player_id ?? id };
       break;
     }
     case 'vacate': {

@@ -60,8 +60,14 @@ test('Doyle: столы, рассадка, авто/случайная/бала�
   assert.equal(tables.length, 3);
   assert.equal(tables[0].seats.length, 8);
 
-  // Авторассадка 3 игроков по 3 столам (по 1 на стол)
-  const auto = run({ version: 2, state: configured.state }, { type: 'autoSeat' });
+  // Ручная посадка игрока на конкретный бокс (проверяем, что releaseSeat не затирает ссылку на массив seats)
+  const assigned = run({ version: 2, state: configured.state }, { type: 'assign', playerId: '50', tableNo: 1, seatNo: 3 });
+  assert.ok(assigned.state);
+  const afterAssign = (assigned.state.seating as { tables: { seats: { playerId: unknown }[] }[] }).tables;
+  assert.equal(afterAssign[0].seats[2].playerId, 50);
+
+  // Авторассадка оставшихся 2 игроков (всего 3 за столами)
+  const auto = run({ version: 3, state: assigned.state }, { type: 'autoSeat' });
   assert.ok(auto.state);
   const seatedTables = (auto.state.seating as { tables: { seats: { playerId: unknown }[] }[] }).tables;
   const occupiedCount = seatedTables.flatMap(t => t.seats).filter(s => s.playerId != null).length;
