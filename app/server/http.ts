@@ -139,7 +139,8 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     const ctx = await resolveSession(pg, rawSessionToken, DOYLE_CLUB_ID);
     if (!ctx || !rawSessionToken) throw new DomainError('Требуется вход в кабинет', 401);
     if (!hasDoyleAccess(ctx)) throw new DomainError('Нет доступа к данным Doyle', 403);
-    return sendJson(res, 200, { ticket: issueDoyleReadTicket(rawSessionToken) });
+    const renewable = url.searchParams.get('renewable') === '1';
+    return sendJson(res, 200, { ticket: issueDoyleReadTicket(rawSessionToken, { renewable }) });
   }
 
   if (SECURE_COOKIES && url.pathname === '/api/doyle/snapshot' && req.headers.host === gatewayHost && req.headers.origin === ONETABLE_APP_ORIGIN) {
@@ -174,6 +175,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     const ctx = await resolveSession(pg, rawSessionToken, activeClub);
     if (!ctx) return sendJson(res, 401, { error: 'Требуется вход' });
     const doyle = usesDoyleData(ctx);
+    const doyleAccess = hasDoyleAccess(ctx);
     const [defaultTournament, identities] = await Promise.all([
       doyle ? Promise.resolve(null) : pg.forClub(ctx.club.id).query<{ id: string }>(
         `SELECT id FROM tournaments WHERE club_id=$1 AND ($2::boolean OR state<>'draft')
@@ -190,9 +192,12 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
       memberships: ctx.memberships,
       identities,
       defaultTournamentId: defaultTournament,
-      doyleUnavailable: doyle && !hasDoyleAccess(ctx),
-      doyleAccess: hasDoyleAccess(ctx),
+      doyleUnavailable: doyle && !doyleAccess,
+      doyleAccess,
       doyleWrite: canWriteDoyle(ctx),
+      doyleGatewayTicket: SECURE_COOKIES && req.headers.host === appHost && doyleAccess && rawSessionToken
+        ? issueDoyleReadTicket(rawSessionToken, { renewable: true })
+        : undefined,
     });
   }
 
